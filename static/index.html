@@ -1162,8 +1162,8 @@
     </style>
 </head>
 <body>
-    <!-- Login Section -->
-    <div class="login-container" id="loginContainer">
+    <!-- Login Section - Hidden -->
+    <div class="login-container hidden" id="loginContainer">
         <div class="login-box">
             <div class="login-header">
                 <h1>📈 Crypto Trading</h1>
@@ -1240,7 +1240,7 @@
                 <span class="menu-item-icon">📈</span>
                 <span>Backtest</span>
             </div>
-            <button class="logout-btn" onclick="handleLogout()">🚪 Logout</button>
+            <!-- <button class="logout-btn" onclick="handleLogout()">🚪 Logout</button> -->
         </div>
 
         <!-- Main Content Area -->
@@ -1675,6 +1675,24 @@
                                             <option value="4h">4 Hours</option>
                                             <option value="1d">1 Day</option>
                                         </select>
+                                    </div>
+                                    <div class="param-item">
+                                        <label style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" id="backtestUseRSI" style="width: auto; margin: 0;">
+                                            Enable RSI
+                                        </label>
+                                    </div>
+                                    <div class="param-item">
+                                        <label>RSI Period</label>
+                                        <input type="number" id="backtestRSIPeriod" value="14" min="1" max="50" step="1" placeholder="14" title="RSI period for filter">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>Overbought Level</label>
+                                        <input type="number" id="backtestRSIOverbought" value="60" min="50" max="100" step="1" placeholder="60" title="RSI overbought threshold">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>Oversold Level</label>
+                                        <input type="number" id="backtestRSIOversold" value="40" min="0" max="50" step="1" placeholder="40" title="RSI oversold threshold">
                                     </div>
                                 </div>
                             </div>
@@ -3157,6 +3175,10 @@
             const ema50 = parseInt(document.getElementById('customEma50').value) || 50;
             const days = Math.max(1, Math.min(365, parseInt(document.getElementById('backtestPeriod').value) || 30));
             const timeframe = document.getElementById('backtestTimeframe').value || '5m';
+            const useRSI = document.getElementById('backtestUseRSI')?.checked || false;
+            const rsiPeriod = parseInt(document.getElementById('backtestRSIPeriod')?.value) || 14;
+            const rsiOverbought = parseFloat(document.getElementById('backtestRSIOverbought')?.value) || 60;
+            const rsiOversold = parseFloat(document.getElementById('backtestRSIOversold')?.value) || 40;
             const periodLabel = days + ' Days';
             
             const backtestResults = document.getElementById('backtestResults');
@@ -3169,12 +3191,14 @@
             backtestTrades.innerHTML = '';
             backtestResultsTitle.textContent = `📊 Backtest Results (${periodLabel} - ${timeframe} Timeframe)`;
             
-            addToStrategyLog(`📊 Starting professional backtest: ${symbol}, ${days} days, ${timeframe}, Lots: ${lots}, EMA(${ema9},${ema21},${ema50}), SL: ${slPoints} points, Target: ${targetPoints} points`);
+            addToStrategyLog(`📊 Starting professional backtest: ${symbol}, ${days} days, ${timeframe}, Lots: ${lots}, EMA(${ema9},${ema21},${ema50}), SL: ${slPoints} points, Target: ${targetPoints} points${useRSI ? `, RSI(${rsiPeriod},${rsiOverbought},${rsiOversold})` : ''}`);
             
             try {
-                const response = await fetch(
-                    `/api/backtest?symbol=${symbol}&sl_points=${slPoints}&target_points=${targetPoints}&lots=${lots}&ema9=${ema9}&ema21=${ema21}&ema50=${ema50}&days=${days}&timeframe=${timeframe}`
-                );
+                let apiUrl = `/api/backtest?symbol=${symbol}&sl_points=${slPoints}&target_points=${targetPoints}&lots=${lots}&ema9=${ema9}&ema21=${ema21}&ema50=${ema50}&days=${days}&timeframe=${timeframe}`;
+                if (useRSI) {
+                    apiUrl += `&use_rsi_filter=true&rsi_period=${rsiPeriod}&rsi_overbought=${rsiOverbought}&rsi_oversold=${rsiOversold}`;
+                }
+                const response = await fetch(apiUrl);
                 
                 // Check if response is JSON
                 const contentType = response.headers.get('content-type');
@@ -3188,6 +3212,7 @@
                 
                 if (data.success) {
                     const emaInfo = data.ema_periods ? `EMA(${data.ema_periods.ema9},${data.ema_periods.ema21},${data.ema_periods.ema50})` : '';
+                    const rsiInfo = data.rsi_settings && data.rsi_settings.enabled ? `RSI(${data.rsi_settings.period},${data.rsi_settings.overbought},${data.rsi_settings.oversold})` : '';
                     // Display stats
                     backtestStats.innerHTML = `
                         <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
@@ -3195,6 +3220,7 @@
                             <div style="font-size: 24px; font-weight: 700; color: #374151;">${data.total_trades}</div>
                             ${data.total_signals ? `<div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">${data.total_signals} signals</div>` : ''}
                             ${emaInfo ? `<div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">${emaInfo}</div>` : ''}
+                            ${rsiInfo ? `<div style="font-size: 10px; color: #f59e0b; margin-top: 3px;">${rsiInfo}</div>` : ''}
                         </div>
                         <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
                             <div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Win Rate</div>
@@ -3300,22 +3326,18 @@
             alert(`🧪 ${strategyType} strategy test chal raha hai... (Demo mode - actual testing abhi implement nahi hui)`);
         }
 
-        // Check if already logged in
+        // Check if already logged in - NOW DIRECTLY SHOW APP
         window.addEventListener('DOMContentLoaded', () => {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            // Directly show app layout without login check
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('appLayout').classList.add('active');
             
-            if (isLoggedIn === 'true') {
-                // Already logged in, show app layout
-                document.getElementById('loginContainer').classList.add('hidden');
-                document.getElementById('appLayout').classList.add('active');
-                
-                // Update user greeting
-                const username = localStorage.getItem('username') || 'User';
-                document.getElementById('userGreeting').textContent = `Welcome, ${username}!`;
-                
-                // Initialize chart
-                setTimeout(() => {
-                    if (typeof LightweightCharts === 'undefined') {
+            // Set default user greeting
+            document.getElementById('userGreeting').textContent = 'Welcome to Crypto Trading!';
+            
+            // Initialize chart
+            setTimeout(() => {
+                if (typeof LightweightCharts === 'undefined') {
                         const errorEl = document.getElementById('error');
                         if (errorEl) {
                             errorEl.textContent = 'Chart library load nahi hui. Page refresh karein.';
@@ -3339,11 +3361,6 @@
                     loadOrders();
                     loadPositions();
                 }, 100);
-            } else {
-                // Show login page
-                document.getElementById('loginContainer').classList.remove('hidden');
-                document.getElementById('appLayout').classList.remove('active');
-            }
         });
     </script>
 </body>
