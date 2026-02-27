@@ -1772,6 +1772,12 @@
                                 <div id="backtestTrades" style="max-height: 300px; overflow-y: auto;">
                                     <!-- Trade list will be populated here -->
                                 </div>
+                                <div style="margin-top: 16px;">
+                                    <h5 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px;">📑 Backtest Reports History</h5>
+                                    <div id="backtestReportsHistory" style="max-height: 280px; overflow-y: auto;">
+                                        <div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1886,6 +1892,12 @@
                                 <h4 id="backtestPageTitle" style="font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 15px;">📊 Backtest Results</h4>
                                 <div id="backtestPageStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px;"></div>
                                 <div id="backtestPageTrades" style="max-height: 360px; overflow-y: auto;"></div>
+                                <div style="margin-top: 16px;">
+                                    <h5 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px;">📑 Backtest Reports History</h5>
+                                    <div id="backtestPageReportsHistory" style="max-height: 280px; overflow-y: auto;">
+                                        <div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2979,6 +2991,55 @@
 
         let lastBacktestResult = null;
         let lastBacktestPageResult = null;
+        let backtestReportsSidebar = [];
+        let backtestReportsPage = [];
+
+        function renderBacktestReports(containerId, reports) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            if (!reports.length) {
+                container.innerHTML = '<div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>';
+                return;
+            }
+            container.innerHTML = reports.map((r) => `
+                <div style="padding: 12px; margin-bottom: 8px; background: white; border: 1px solid #e5e7eb; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; font-weight: 700; color: #374151;">${r.symbol} • ${r.timeframe} • ${r.days}d</span>
+                        <span style="font-size: 11px; color: #6b7280;">${r.runAt}</span>
+                    </div>
+                    <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">Indicators: EMA(${r.ema9}, ${r.ema21}, ${r.ema50}) | RSI: ${r.rsiText} | No-entry(11-14 IST): ${r.noEntryWindow ? 'ON' : 'OFF'}</div>
+                    <div style="font-size: 11px; color: #4b5563;">Trades: ${r.totalTrades} | SL Hits: ${r.slHits} | Target Hits: ${r.targetHits} | Win Rate: ${r.winRate}% | P&L: <span style="font-weight: 700; color: ${r.totalProfit >= 0 ? '#10b981' : '#ef4444'};">${r.totalProfit >= 0 ? '+' : ''}${r.totalProfit.toFixed(2)}</span></div>
+                </div>
+            `).join('');
+        }
+
+        function appendBacktestReport(listType, payload) {
+            const report = {
+                runAt: new Date().toLocaleString(),
+                symbol: payload.symbol,
+                timeframe: payload.timeframe,
+                days: payload.days,
+                ema9: payload.ema9,
+                ema21: payload.ema21,
+                ema50: payload.ema50,
+                rsiText: payload.rsiEnabled ? `${payload.rsiPeriod}/${payload.rsiOverbought}/${payload.rsiOversold}` : 'OFF',
+                noEntryWindow: payload.noEntryWindow,
+                totalTrades: payload.totalTrades,
+                slHits: payload.slHits,
+                targetHits: payload.targetHits,
+                winRate: payload.winRate,
+                totalProfit: payload.totalProfit
+            };
+            if (listType === 'sidebar') {
+                backtestReportsSidebar.unshift(report);
+                backtestReportsSidebar = backtestReportsSidebar.slice(0, 30);
+                renderBacktestReports('backtestReportsHistory', backtestReportsSidebar);
+            } else {
+                backtestReportsPage.unshift(report);
+                backtestReportsPage = backtestReportsPage.slice(0, 30);
+                renderBacktestReports('backtestPageReportsHistory', backtestReportsPage);
+            }
+        }
 
         function recalcBacktestLotsSidebar() {
             if (!lastBacktestResult) return;
@@ -3188,6 +3249,24 @@
                         tradesDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #6b7280;">No trades in this period</div>';
                     }
                     lastBacktestPageResult = { data, symbol, periodLabel, timeframe };
+                    appendBacktestReport('page', {
+                        symbol,
+                        timeframe,
+                        days,
+                        ema9,
+                        ema21,
+                        ema50,
+                        rsiEnabled: !!(data.rsi_settings && data.rsi_settings.enabled),
+                        rsiPeriod: data.rsi_settings?.period ?? rsiPeriod,
+                        rsiOverbought: data.rsi_settings?.overbought ?? rsiOverbought,
+                        rsiOversold: data.rsi_settings?.oversold ?? rsiOversold,
+                        noEntryWindow: !!data.use_no_entry_window,
+                        totalTrades: data.total_trades || 0,
+                        slHits: data.sl_hits || 0,
+                        targetHits: data.target_hits || 0,
+                        winRate: data.win_rate || 0,
+                        totalProfit: data.total_profit || 0
+                    });
                     if (titleDiv && data.days_covered != null && data.days_requested != null && data.days_covered < data.days_requested) {
                         titleDiv.textContent = '📊 Backtest Results (' + periodLabel + ' - ' + timeframe + ' · ' + data.days_covered + ' days data)';
                     }
@@ -3326,6 +3405,24 @@
                     }
                     
                     lastBacktestResult = { data, symbol, periodLabel, timeframe };
+                    appendBacktestReport('sidebar', {
+                        symbol,
+                        timeframe,
+                        days,
+                        ema9,
+                        ema21,
+                        ema50,
+                        rsiEnabled: !!(data.rsi_settings && data.rsi_settings.enabled),
+                        rsiPeriod: data.rsi_settings?.period ?? rsiPeriod,
+                        rsiOverbought: data.rsi_settings?.overbought ?? rsiOverbought,
+                        rsiOversold: data.rsi_settings?.oversold ?? rsiOversold,
+                        noEntryWindow: !!data.use_no_entry_window,
+                        totalTrades: data.total_trades || 0,
+                        slHits: data.sl_hits || 0,
+                        targetHits: data.target_hits || 0,
+                        winRate: data.win_rate || 0,
+                        totalProfit: data.total_profit || 0
+                    });
                     if (backtestResultsTitle && data.days_covered != null && data.days_requested != null && data.days_covered < data.days_requested) {
                         backtestResultsTitle.textContent = `📊 Backtest Results (${periodLabel} - ${timeframe} · ${data.days_covered} days data)`;
                     }
