@@ -746,6 +746,105 @@
             background: #e5e7eb;
         }
 
+        .backtest-reports-section {
+            margin-top: 16px;
+            padding: 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+
+        .backtest-reports-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .backtest-reports-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+
+        .backtest-report-empty {
+            padding: 12px;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .backtest-report-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+
+        .backtest-report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .backtest-report-symbol {
+            font-size: 12px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .backtest-report-time {
+            font-size: 11px;
+            color: #6b7280;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .backtest-report-line {
+            font-size: 11px;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+
+        .backtest-report-line + .backtest-report-line {
+            margin-top: 4px;
+        }
+
+        .backtest-report-pnl-positive {
+            color: #059669;
+            font-weight: 700;
+        }
+
+        .backtest-report-pnl-negative {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            .backtest-reports-section {
+                padding: 12px;
+            }
+
+            .backtest-report-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .backtest-report-time {
+                text-align: left;
+                white-space: normal;
+            }
+        }
+
         /* Home Page Additional Content */
         .dashboard-grid {
             display: grid;
@@ -1772,10 +1871,10 @@
                                 <div id="backtestTrades" style="max-height: 300px; overflow-y: auto;">
                                     <!-- Trade list will be populated here -->
                                 </div>
-                                <div style="margin-top: 16px;">
-                                    <h5 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px;">📑 Backtest Reports History</h5>
-                                    <div id="backtestReportsHistory" style="max-height: 280px; overflow-y: auto;">
-                                        <div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>
+                                <div class="backtest-reports-section">
+                                    <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
+                                    <div id="backtestReportsHistory" class="backtest-reports-list">
+                                        <div class="backtest-report-empty">Run backtest to generate report history.</div>
                                     </div>
                                 </div>
                             </div>
@@ -1892,10 +1991,10 @@
                                 <h4 id="backtestPageTitle" style="font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 15px;">📊 Backtest Results</h4>
                                 <div id="backtestPageStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px;"></div>
                                 <div id="backtestPageTrades" style="max-height: 360px; overflow-y: auto;"></div>
-                                <div style="margin-top: 16px;">
-                                    <h5 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px;">📑 Backtest Reports History</h5>
-                                    <div id="backtestPageReportsHistory" style="max-height: 280px; overflow-y: auto;">
-                                        <div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>
+                                <div class="backtest-reports-section">
+                                    <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
+                                    <div id="backtestPageReportsHistory" class="backtest-reports-list">
+                                        <div class="backtest-report-empty">Run backtest to generate report history.</div>
                                     </div>
                                 </div>
                             </div>
@@ -2998,17 +3097,17 @@
             const container = document.getElementById(containerId);
             if (!container) return;
             if (!reports.length) {
-                container.innerHTML = '<div style="padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 12px;">Run backtest to generate report history.</div>';
+                container.innerHTML = '<div class="backtest-report-empty">Run backtest to generate report history.</div>';
                 return;
             }
             container.innerHTML = reports.map((r) => `
-                <div style="padding: 12px; margin-bottom: 8px; background: white; border: 1px solid #e5e7eb; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #374151;">${r.symbol} • ${r.timeframe} • ${r.days}d</span>
-                        <span style="font-size: 11px; color: #6b7280;">${r.runAt}</span>
+                <div class="backtest-report-item">
+                    <div class="backtest-report-header">
+                        <span class="backtest-report-symbol">${r.symbol} • ${r.timeframe} • ${r.days}d</span>
+                        <span class="backtest-report-time">${r.runAt}</span>
                     </div>
-                    <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">Indicators: EMA(${r.ema9}, ${r.ema21}, ${r.ema50}) | RSI: ${r.rsiText} | No-entry(11-14 IST): ${r.noEntryWindow ? 'ON' : 'OFF'}</div>
-                    <div style="font-size: 11px; color: #4b5563;">Trades: ${r.totalTrades} | SL Hits: ${r.slHits} | Target Hits: ${r.targetHits} | Win Rate: ${r.winRate}% | P&L: <span style="font-weight: 700; color: ${r.totalProfit >= 0 ? '#10b981' : '#ef4444'};">${r.totalProfit >= 0 ? '+' : ''}${r.totalProfit.toFixed(2)}</span></div>
+                    <div class="backtest-report-line">Indicators: EMA(${r.ema9}, ${r.ema21}, ${r.ema50}) | RSI: ${r.rsiText} | No-entry(11-14 IST): ${r.noEntryWindow ? 'ON' : 'OFF'}</div>
+                    <div class="backtest-report-line">Trades: ${r.totalTrades} | SL Hits: ${r.slHits} | Target Hits: ${r.targetHits} | Win Rate: ${r.winRate}% | P&L: <span class="${r.totalProfit >= 0 ? 'backtest-report-pnl-positive' : 'backtest-report-pnl-negative'}">${r.totalProfit >= 0 ? '+' : ''}${r.totalProfit.toFixed(2)}</span></div>
                 </div>
             `).join('');
         }
