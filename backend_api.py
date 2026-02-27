@@ -913,6 +913,9 @@ def backtest_strategy():
         for i in range(1, len(all_candles)):
             current = all_candles[i]
             previous = all_candles[i-1]
+            current_time_ist = pd.Timestamp(current['time'], unit='ms', tz='UTC').tz_convert('Asia/Kolkata')
+            current_minutes_ist = current_time_ist.hour * 60 + current_time_ist.minute
+            in_no_entry_window = (11 * 60) <= current_minutes_ist < (14 * 60)
             
             # Check if we have valid EMAs (use dynamic keys)
             current_ema9_val = current.get(f'ema_{ema9}') or current.get('ema_9')
@@ -1028,6 +1031,9 @@ def backtest_strategy():
             
             # Check for new signals
             if not position:
+                if in_no_entry_window:
+                    continue
+
                 # Buy signal: EMA9 crosses above both EMA21 and EMA50
                 # Previous: EMA9 was NOT above both, Now: EMA9 is above both
                 if not ema9_above_both_prev and ema9_above_both_now:

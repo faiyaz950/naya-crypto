@@ -1893,6 +1893,19 @@
             intervalId: null
         };
 
+        function isInNoEntryWindowIST(date = new Date()) {
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(date);
+            const hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+            const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+            const totalMinutes = hour * 60 + minute;
+            return totalMinutes >= (11 * 60) && totalMinutes < (14 * 60);
+        }
+
         function initChart() {
             const chartContainer = document.getElementById('chart');
             
@@ -2786,6 +2799,11 @@
                 const timestamp = new Date().toLocaleTimeString();
                 addToStrategyLog(`[${timestamp}] Checking: EMA${ema9Period}=${currentEma9.toFixed(2)}, EMA${ema21Period}=${currentEma21.toFixed(2)}, EMA${ema50Period}=${currentEma50.toFixed(2)}`);
                 addToStrategyLog(`[${timestamp}] State: ${currentStateText}`);
+
+                if (isInNoEntryWindowIST()) {
+                    addToStrategyLog(`[${timestamp}] ⏸️ No-entry window (11:00 AM to 2:00 PM IST) active. New trade skipped.`);
+                    return;
+                }
                 
                 // Detect cross above: both were below, now both are above
                 if (!bothAbovePrev && bothAboveNow && customEMAStrategy.lastState !== 'above') {
