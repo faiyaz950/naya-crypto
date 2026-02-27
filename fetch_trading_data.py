@@ -428,11 +428,14 @@ class CryptoAPIClient:
             
             print(f"   🎯 Target: {days} days of data from {start_time_target} to {end_time_target}")
             
-            # Fetch in multiple time-windows to work around exchange per-request limit (~4000 candles for 5m)
+            # Fetch in multiple time-windows to work around exchange per-request limits.
+            # 5m and lower timeframes usually return ~4000 candles per call on Delta.
             batch_limit = min(total_candles_needed, 5000)
             current_end = end_time_target
             current_start = start_time_target
-            max_batches = 20  # safety: avoid infinite loop
+            estimated_batch_capacity = 4000 if interval in {'1m', '3m', '5m'} else 5000
+            estimated_batches_needed = (total_candles_needed + estimated_batch_capacity - 1) // estimated_batch_capacity
+            max_batches = max(20, min(estimated_batches_needed + 5, 400))  # adaptive with safety cap
             batch_num = 0
             
             while batch_num < max_batches:

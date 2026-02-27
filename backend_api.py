@@ -786,11 +786,16 @@ def backtest_strategy():
         use_rsi_filter = request.args.get('use_rsi_filter', 'false').lower() == 'true'  # Default false
         use_no_entry_window = request.args.get('use_no_entry_window', 'true').lower() == 'true'  # Default true
         
-        # Validate inputs - only check for positive days, no upper limit
+        # Validate inputs - support up to 700 days
         if days <= 0:
             return jsonify({
                 'success': False,
                 'error': 'Days must be greater than 0'
+            }), 400
+        if days > 700:
+            return jsonify({
+                'success': False,
+                'error': 'Days must be 700 or less'
             }), 400
         
         print(f"📊 Starting professional backtest for {symbol}")
@@ -1170,7 +1175,7 @@ def backtest_strategy():
             'sl_points': sl_points,
             'target_points': target_points,
             'use_no_entry_window': use_no_entry_window,
-            'trades': trades[-50:]  # Last 50 trades
+            'trades': trades  # Return full trade list for complete reporting/export
         })
         
     except Exception as e:

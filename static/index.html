@@ -1788,7 +1788,7 @@
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
                                     <div class="param-item">
                                         <label>Days</label>
-                                        <input type="number" id="backtestPeriod" value="30" min="1" max="365" step="1" placeholder="e.g. 30" title="Backtest period in days">
+                                        <input type="number" id="backtestPeriod" value="30" min="1" max="700" step="1" placeholder="e.g. 30" title="Backtest period in days">
                                     </div>
                                     <div class="param-item">
                                         <label>Lots</label>
@@ -1900,7 +1900,7 @@
                                 <div class="backtest-reports-section">
                                     <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
                                     <div class="backtest-reports-actions">
-                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel (CSV)</button>
+                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel</button>
                                     </div>
                                     <div id="backtestReportsHistory" class="backtest-reports-list">
                                         <div class="backtest-report-empty">Run backtest to generate report history.</div>
@@ -1935,7 +1935,7 @@
                                 </div>
                                 <div class="param-item">
                                     <label>Days</label>
-                                    <input type="number" id="backtestPagePeriod" value="30" min="1" max="365" step="1" placeholder="e.g. 30" title="Backtest period in days">
+                                    <input type="number" id="backtestPagePeriod" value="30" min="1" max="700" step="1" placeholder="e.g. 30" title="Backtest period in days">
                                 </div>
                                 <div class="param-item">
                                     <label>Timeframe</label>
@@ -2023,7 +2023,7 @@
                                 <div class="backtest-reports-section">
                                     <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
                                     <div class="backtest-reports-actions">
-                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel (CSV)</button>
+                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel</button>
                                     </div>
                                     <div id="backtestPageReportsHistory" class="backtest-reports-list">
                                         <div class="backtest-report-empty">Run backtest to generate report history.</div>
@@ -3169,10 +3169,26 @@
             renderBacktestReports('backtestPageReportsHistory', backtestReportsHistory);
         }
 
-        function toCsvValue(value) {
-            if (value == null) return '';
-            const str = String(value).replace(/"/g, '""');
-            return `"${str}"`;
+        function escapeXml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        function worksheetSafeName(name) {
+            const cleaned = String(name || 'Backtest')
+                .replace(/[\\/*?:[\]]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return cleaned.slice(0, 31) || 'Backtest';
+        }
+
+        function toExcelCell(value, type = 'String') {
+            const cellType = type === 'Number' ? 'Number' : 'String';
+            return `<Cell><Data ss:Type="${cellType}">${escapeXml(value)}</Data></Cell>`;
         }
 
         function downloadBacktestReports() {
@@ -3181,52 +3197,88 @@
                 return;
             }
 
-            const header = [
-                'Run Time',
-                'Source',
-                'Symbol',
-                'Timeframe',
-                'Days',
-                'EMA 9',
-                'EMA 21',
-                'EMA 50',
-                'RSI',
-                'No Entry Window (11-14 IST)',
-                'Total Trades',
-                'SL Hits',
-                'Target Hits',
-                'Win Rate (%)',
-                'Total Profit'
-            ];
+            const workbookSheets = backtestReportsHistory.map((r, idx) => {
+                const sheetName = worksheetSafeName(`Run ${idx + 1} ${r.symbol || 'BT'}`);
+                const trades = Array.isArray(r.trades) ? r.trades : [];
+                const runNo = backtestReportsHistory.length - idx;
+                let rows = '';
 
-            const rows = backtestReportsHistory.map((r) => ([
-                r.runAt,
-                r.source,
-                r.symbol,
-                r.timeframe,
-                r.days,
-                r.ema9,
-                r.ema21,
-                r.ema50,
-                r.rsiText,
-                r.noEntryWindow ? 'ON' : 'OFF',
-                r.totalTrades,
-                r.slHits,
-                r.targetHits,
-                r.winRate,
-                r.totalProfit
-            ]));
+                rows += `<Row>${toExcelCell(`Backtest Report #${runNo}`)}</Row>`;
+                rows += `<Row>${toExcelCell('')}</Row>`;
+                rows += `<Row>${toExcelCell('Run Time')}${toExcelCell(r.runAt)}</Row>`;
+                rows += `<Row>${toExcelCell('Source')}${toExcelCell(r.source)}</Row>`;
+                rows += `<Row>${toExcelCell('Symbol')}${toExcelCell(r.symbol)}</Row>`;
+                rows += `<Row>${toExcelCell('Timeframe')}${toExcelCell(r.timeframe)}</Row>`;
+                rows += `<Row>${toExcelCell('Days')}${toExcelCell(r.days, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('Lots / Qty')}${toExcelCell(r.lots, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('SL Points')}${toExcelCell(r.slPoints, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('Target Points')}${toExcelCell(r.targetPoints, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('EMA Settings')}${toExcelCell(`${r.ema9}/${r.ema21}/${r.ema50}`)}</Row>`;
+                rows += `<Row>${toExcelCell('RSI Settings')}${toExcelCell(r.rsiText)}</Row>`;
+                rows += `<Row>${toExcelCell('No Entry Window (11-14 IST)')}${toExcelCell(r.noEntryWindow ? 'ON' : 'OFF')}</Row>`;
+                rows += `<Row>${toExcelCell('Total Profit')}${toExcelCell(r.totalProfit, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('Accuracy (%)')}${toExcelCell(r.winRate, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('Total Number of Trades')}${toExcelCell(r.totalTrades, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('SL Hits')}${toExcelCell(r.slHits, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('Target Hits')}${toExcelCell(r.targetHits, 'Number')}</Row>`;
+                rows += `<Row>${toExcelCell('')}</Row>`;
+                rows += `<Row>${
+                    toExcelCell('Side') +
+                    toExcelCell('Status') +
+                    toExcelCell('Entry Time') +
+                    toExcelCell('Exit Time') +
+                    toExcelCell('Entry Price') +
+                    toExcelCell('Exit Price') +
+                    toExcelCell('Qty/Lots') +
+                    toExcelCell('SL Price') +
+                    toExcelCell('Target Price') +
+                    toExcelCell('PnL') +
+                    toExcelCell('PnL Points')
+                }</Row>`;
 
-            const csv = [header, ...rows]
-                .map((row) => row.map(toCsvValue).join(','))
-                .join('\n');
+                trades.forEach((t) => {
+                    const entryPrice = Number(t.entry_price || 0);
+                    const side = String(t.side || '').toLowerCase();
+                    const slPoints = Number(r.slPoints || 0);
+                    const targetPoints = Number(r.targetPoints || 0);
+                    const slPrice = side === 'buy' ? entryPrice - slPoints : entryPrice + slPoints;
+                    const targetPrice = side === 'buy' ? entryPrice + targetPoints : entryPrice - targetPoints;
+                    const entryTime = t.entry_time ? new Date(t.entry_time).toLocaleString() : '';
+                    const exitTime = t.exit_time ? new Date(t.exit_time).toLocaleString() : '';
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    rows += `<Row>${
+                        toExcelCell(String(t.side || '').toUpperCase()) +
+                        toExcelCell(String(t.status || '')) +
+                        toExcelCell(entryTime) +
+                        toExcelCell(exitTime) +
+                        toExcelCell(t.entry_price ?? '', 'Number') +
+                        toExcelCell(t.exit_price ?? '', 'Number') +
+                        toExcelCell(r.lots ?? '', 'Number') +
+                        toExcelCell(slPrice, 'Number') +
+                        toExcelCell(targetPrice, 'Number') +
+                        toExcelCell(t.pnl ?? '', 'Number') +
+                        toExcelCell(t.pnl_points ?? '', 'Number')
+                    }</Row>`;
+                });
+
+                return `<Worksheet ss:Name="${escapeXml(sheetName)}"><Table>${rows}</Table></Worksheet>`;
+            }).join('');
+
+            const workbookXml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+${workbookSheets}
+</Workbook>`;
+
+            const blob = new Blob([workbookXml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             const ts = new Date().toISOString().replace(/[:.]/g, '-');
             a.href = url;
-            a.download = `backtest-history-${ts}.csv`;
+            a.download = `backtest-history-${ts}.xls`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -3245,11 +3297,15 @@
                 ema50: payload.ema50,
                 rsiText: payload.rsiEnabled ? `${payload.rsiPeriod}/${payload.rsiOverbought}/${payload.rsiOversold}` : 'OFF',
                 noEntryWindow: payload.noEntryWindow,
+                lots: payload.lots,
+                slPoints: payload.slPoints,
+                targetPoints: payload.targetPoints,
                 totalTrades: payload.totalTrades,
                 slHits: payload.slHits,
                 targetHits: payload.targetHits,
                 winRate: payload.winRate,
-                totalProfit: payload.totalProfit
+                totalProfit: payload.totalProfit,
+                trades: Array.isArray(payload.trades) ? payload.trades : []
             };
             backtestReportsHistory.unshift(report);
             persistBacktestReports();
@@ -3407,7 +3463,7 @@
             const ema9 = parseInt(document.getElementById('backtestPageEma9').value) || 9;
             const ema21 = parseInt(document.getElementById('backtestPageEma21').value) || 21;
             const ema50 = parseInt(document.getElementById('backtestPageEma50').value) || 50;
-            const days = Math.max(1, Math.min(365, parseInt(document.getElementById('backtestPagePeriod').value) || 30));
+            const days = Math.max(1, Math.min(700, parseInt(document.getElementById('backtestPagePeriod').value) || 30));
             const timeframe = document.getElementById('backtestPageTimeframe').value || '5m';
             const lots = Math.max(0.01, parseFloat(document.getElementById('backtestPageLots').value) || 1);
             
@@ -3476,11 +3532,15 @@
                         rsiOverbought: data.rsi_settings?.overbought ?? rsiOverbought,
                         rsiOversold: data.rsi_settings?.oversold ?? rsiOversold,
                         noEntryWindow: !!data.use_no_entry_window,
+                        lots: data.lots || lots,
+                        slPoints: data.sl_points || slPoints,
+                        targetPoints: data.target_points || targetPoints,
                         totalTrades: data.total_trades || 0,
                         slHits: data.sl_hits || 0,
                         targetHits: data.target_hits || 0,
                         winRate: data.win_rate || 0,
-                        totalProfit: data.total_profit || 0
+                        totalProfit: data.total_profit || 0,
+                        trades: data.trades || []
                     });
                     if (titleDiv && data.days_covered != null && data.days_requested != null && data.days_covered < data.days_requested) {
                         titleDiv.textContent = '📊 Backtest Results (' + periodLabel + ' - ' + timeframe + ' · ' + data.days_covered + ' days data)';
@@ -3507,7 +3567,7 @@
             const ema9 = parseInt(document.getElementById('customEma9').value) || 9;
             const ema21 = parseInt(document.getElementById('customEma21').value) || 21;
             const ema50 = parseInt(document.getElementById('customEma50').value) || 50;
-            const days = Math.max(1, Math.min(365, parseInt(document.getElementById('backtestPeriod').value) || 30));
+            const days = Math.max(1, Math.min(700, parseInt(document.getElementById('backtestPeriod').value) || 30));
             const timeframe = document.getElementById('backtestTimeframe').value || '5m';
             const useRSI = document.getElementById('backtestUseRSI')?.checked || false;
             const rsiPeriod = parseInt(document.getElementById('backtestRSIPeriod')?.value) || 14;
@@ -3632,11 +3692,15 @@
                         rsiOverbought: data.rsi_settings?.overbought ?? rsiOverbought,
                         rsiOversold: data.rsi_settings?.oversold ?? rsiOversold,
                         noEntryWindow: !!data.use_no_entry_window,
+                        lots: data.lots || lots,
+                        slPoints: data.sl_points || slPoints,
+                        targetPoints: data.target_points || targetPoints,
                         totalTrades: data.total_trades || 0,
                         slHits: data.sl_hits || 0,
                         targetHits: data.target_hits || 0,
                         winRate: data.win_rate || 0,
-                        totalProfit: data.total_profit || 0
+                        totalProfit: data.total_profit || 0,
+                        trades: data.trades || []
                     });
                     if (backtestResultsTitle && data.days_covered != null && data.days_requested != null && data.days_covered < data.days_requested) {
                         backtestResultsTitle.textContent = `📊 Backtest Results (${periodLabel} - ${timeframe} · ${data.days_covered} days data)`;
