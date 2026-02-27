@@ -770,6 +770,32 @@
             padding-right: 2px;
         }
 
+        .backtest-reports-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .backtest-reports-download-btn {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            color: #4338ca;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: none;
+        }
+
+        .backtest-reports-download-btn:hover {
+            background: #e0e7ff;
+            border-color: #a5b4fc;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(67, 56, 202, 0.15);
+        }
+
         .backtest-report-empty {
             padding: 12px;
             background: #ffffff;
@@ -1873,6 +1899,9 @@
                                 </div>
                                 <div class="backtest-reports-section">
                                     <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
+                                    <div class="backtest-reports-actions">
+                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel (CSV)</button>
+                                    </div>
                                     <div id="backtestReportsHistory" class="backtest-reports-list">
                                         <div class="backtest-report-empty">Run backtest to generate report history.</div>
                                     </div>
@@ -1993,6 +2022,9 @@
                                 <div id="backtestPageTrades" style="max-height: 360px; overflow-y: auto;"></div>
                                 <div class="backtest-reports-section">
                                     <h5 class="backtest-reports-title">📑 Backtest Reports History</h5>
+                                    <div class="backtest-reports-actions">
+                                        <button class="backtest-reports-download-btn" onclick="downloadBacktestReports()">⬇️ Download Excel (CSV)</button>
+                                    </div>
                                     <div id="backtestPageReportsHistory" class="backtest-reports-list">
                                         <div class="backtest-report-empty">Run backtest to generate report history.</div>
                                     </div>
@@ -3090,8 +3122,8 @@
 
         let lastBacktestResult = null;
         let lastBacktestPageResult = null;
-        let backtestReportsSidebar = [];
-        let backtestReportsPage = [];
+        let backtestReportsHistory = [];
+        const BACKTEST_REPORTS_STORAGE_KEY = 'backtest_reports_history_v1';
 
         function renderBacktestReports(containerId, reports) {
             const container = document.getElementById(containerId);
@@ -3106,15 +3138,105 @@
                         <span class="backtest-report-symbol">${r.symbol} • ${r.timeframe} • ${r.days}d</span>
                         <span class="backtest-report-time">${r.runAt}</span>
                     </div>
+                    <div class="backtest-report-line">Source: ${r.source}</div>
                     <div class="backtest-report-line">Indicators: EMA(${r.ema9}, ${r.ema21}, ${r.ema50}) | RSI: ${r.rsiText} | No-entry(11-14 IST): ${r.noEntryWindow ? 'ON' : 'OFF'}</div>
                     <div class="backtest-report-line">Trades: ${r.totalTrades} | SL Hits: ${r.slHits} | Target Hits: ${r.targetHits} | Win Rate: ${r.winRate}% | P&L: <span class="${r.totalProfit >= 0 ? 'backtest-report-pnl-positive' : 'backtest-report-pnl-negative'}">${r.totalProfit >= 0 ? '+' : ''}${r.totalProfit.toFixed(2)}</span></div>
                 </div>
             `).join('');
         }
 
+        function persistBacktestReports() {
+            try {
+                localStorage.setItem(BACKTEST_REPORTS_STORAGE_KEY, JSON.stringify(backtestReportsHistory));
+            } catch (err) {
+                console.warn('Could not persist backtest reports history:', err);
+            }
+        }
+
+        function loadBacktestReports() {
+            try {
+                const raw = localStorage.getItem(BACKTEST_REPORTS_STORAGE_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                backtestReportsHistory = Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                console.warn('Could not load backtest reports history:', err);
+                backtestReportsHistory = [];
+            }
+        }
+
+        function renderAllBacktestReports() {
+            renderBacktestReports('backtestReportsHistory', backtestReportsHistory);
+            renderBacktestReports('backtestPageReportsHistory', backtestReportsHistory);
+        }
+
+        function toCsvValue(value) {
+            if (value == null) return '';
+            const str = String(value).replace(/"/g, '""');
+            return `"${str}"`;
+        }
+
+        function downloadBacktestReports() {
+            if (!backtestReportsHistory.length) {
+                alert('No backtest history available to export.');
+                return;
+            }
+
+            const header = [
+                'Run Time',
+                'Source',
+                'Symbol',
+                'Timeframe',
+                'Days',
+                'EMA 9',
+                'EMA 21',
+                'EMA 50',
+                'RSI',
+                'No Entry Window (11-14 IST)',
+                'Total Trades',
+                'SL Hits',
+                'Target Hits',
+                'Win Rate (%)',
+                'Total Profit'
+            ];
+
+            const rows = backtestReportsHistory.map((r) => ([
+                r.runAt,
+                r.source,
+                r.symbol,
+                r.timeframe,
+                r.days,
+                r.ema9,
+                r.ema21,
+                r.ema50,
+                r.rsiText,
+                r.noEntryWindow ? 'ON' : 'OFF',
+                r.totalTrades,
+                r.slHits,
+                r.targetHits,
+                r.winRate,
+                r.totalProfit
+            ]));
+
+            const csv = [header, ...rows]
+                .map((row) => row.map(toCsvValue).join(','))
+                .join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            a.href = url;
+            a.download = `backtest-history-${ts}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         function appendBacktestReport(listType, payload) {
             const report = {
                 runAt: new Date().toLocaleString(),
+                source: listType === 'sidebar' ? 'Sidebar Backtest' : 'Backtest Page',
                 symbol: payload.symbol,
                 timeframe: payload.timeframe,
                 days: payload.days,
@@ -3129,15 +3251,9 @@
                 winRate: payload.winRate,
                 totalProfit: payload.totalProfit
             };
-            if (listType === 'sidebar') {
-                backtestReportsSidebar.unshift(report);
-                backtestReportsSidebar = backtestReportsSidebar.slice(0, 30);
-                renderBacktestReports('backtestReportsHistory', backtestReportsSidebar);
-            } else {
-                backtestReportsPage.unshift(report);
-                backtestReportsPage = backtestReportsPage.slice(0, 30);
-                renderBacktestReports('backtestPageReportsHistory', backtestReportsPage);
-            }
+            backtestReportsHistory.unshift(report);
+            persistBacktestReports();
+            renderAllBacktestReports();
         }
 
         function recalcBacktestLotsSidebar() {
@@ -3569,6 +3685,8 @@
             // Directly show app layout without login check
             document.getElementById('loginContainer').classList.add('hidden');
             document.getElementById('appLayout').classList.add('active');
+            loadBacktestReports();
+            renderAllBacktestReports();
             
             // Set default user greeting
             document.getElementById('userGreeting').textContent = 'Welcome to Crypto Trading!';
