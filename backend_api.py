@@ -784,6 +784,7 @@ def backtest_strategy():
         rsi_overbought = float(request.args.get('rsi_overbought', 60))  # Default overbought 60
         rsi_oversold = float(request.args.get('rsi_oversold', 40))  # Default oversold 40
         use_rsi_filter = request.args.get('use_rsi_filter', 'false').lower() == 'true'  # Default false
+        use_no_entry_window = request.args.get('use_no_entry_window', 'true').lower() == 'true'  # Default true
         
         # Validate inputs - only check for positive days, no upper limit
         if days <= 0:
@@ -795,6 +796,7 @@ def backtest_strategy():
         print(f"📊 Starting professional backtest for {symbol}")
         print(f"   Parameters: {days} days, {timeframe} timeframe, Lots: {lots}, SL: {sl_points}, Target: {target_points}")
         print(f"   EMA: ({ema9}, {ema21}, {ema50}), Exchange: {exchange}")
+        print(f"   No-entry window (11:00-14:00 IST): {'ON' if use_no_entry_window else 'OFF'}")
         if use_rsi_filter:
             print(f"   RSI Filter: Period={rsi_period}, Overbought={rsi_overbought}, Oversold={rsi_oversold}")
         
@@ -915,7 +917,7 @@ def backtest_strategy():
             previous = all_candles[i-1]
             current_time_ist = pd.Timestamp(current['time'], unit='ms', tz='UTC').tz_convert('Asia/Kolkata')
             current_minutes_ist = current_time_ist.hour * 60 + current_time_ist.minute
-            in_no_entry_window = (11 * 60) <= current_minutes_ist < (14 * 60)
+            in_no_entry_window = use_no_entry_window and ((11 * 60) <= current_minutes_ist < (14 * 60))
             
             # Check if we have valid EMAs (use dynamic keys)
             current_ema9_val = current.get(f'ema_{ema9}') or current.get('ema_9')
@@ -1167,6 +1169,7 @@ def backtest_strategy():
             'lots': lots,
             'sl_points': sl_points,
             'target_points': target_points,
+            'use_no_entry_window': use_no_entry_window,
             'trades': trades[-50:]  # Last 50 trades
         })
         

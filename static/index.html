@@ -1649,6 +1649,12 @@
                                         <option value="true">Live (Delta Exchange)</option>
                                     </select>
                                 </div>
+                                <div class="param-item">
+                                    <label style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" id="customNoEntryWindow" style="width: auto; margin: 0;" checked>
+                                        Block Entries (11:00-14:00 IST)
+                                    </label>
+                                </div>
                             </div>
                             
                             <!-- Backtest Parameters -->
@@ -1693,6 +1699,12 @@
                                     <div class="param-item">
                                         <label>Oversold Level</label>
                                         <input type="number" id="backtestRSIOversold" value="40" min="0" max="50" step="1" placeholder="40" title="RSI oversold threshold">
+                                    </div>
+                                    <div class="param-item">
+                                        <label style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" id="backtestNoEntryWindow" style="width: auto; margin: 0;" checked>
+                                            Block Entries (11:00-14:00 IST)
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -1851,6 +1863,12 @@
                                     <div class="param-item">
                                         <label>Oversold Level</label>
                                         <input type="number" id="backtestPageRSIOversold" value="40" min="0" max="50" placeholder="40">
+                                    </div>
+                                    <div class="param-item">
+                                        <label style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" id="backtestPageNoEntryWindow" style="width: auto; margin: 0;" checked>
+                                            Block Entries (11:00-14:00 IST)
+                                        </label>
                                     </div>
                                 </div>
                                 <p style="font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.4;">
@@ -2637,6 +2655,7 @@
         function activateCustomEMAStrategy() {
             const symbol = document.getElementById('customStrategySymbol').value;
             const autoTrade = document.getElementById('customAutoTrade').value === 'true';
+            const useNoEntryWindow = document.getElementById('customNoEntryWindow')?.checked ?? true;
             
             customEMAStrategy.active = true;
             customEMAStrategy.lastState = null;
@@ -2647,7 +2666,7 @@
             
             // Show details section
             document.getElementById('emaDetailsSection').style.display = 'block';
-            addToStrategyLog(`✅ Strategy Activated - Symbol: ${symbol}, Auto Trade: ${autoTrade ? 'ON' : 'OFF'}`);
+            addToStrategyLog(`✅ Strategy Activated - Symbol: ${symbol}, Auto Trade: ${autoTrade ? 'ON' : 'OFF'}, No-entry window: ${useNoEntryWindow ? 'ON' : 'OFF'}`);
             
             // Start monitoring
             startCustomEMAMonitoring(autoTrade);
@@ -2800,7 +2819,8 @@
                 addToStrategyLog(`[${timestamp}] Checking: EMA${ema9Period}=${currentEma9.toFixed(2)}, EMA${ema21Period}=${currentEma21.toFixed(2)}, EMA${ema50Period}=${currentEma50.toFixed(2)}`);
                 addToStrategyLog(`[${timestamp}] State: ${currentStateText}`);
 
-                if (isInNoEntryWindowIST()) {
+                const useNoEntryWindow = document.getElementById('customNoEntryWindow')?.checked ?? true;
+                if (useNoEntryWindow && isInNoEntryWindowIST()) {
                     addToStrategyLog(`[${timestamp}] ⏸️ No-entry window (11:00 AM to 2:00 PM IST) active. New trade skipped.`);
                     return;
                 }
@@ -3120,6 +3140,7 @@
             const rsiPeriod = parseInt(document.getElementById('backtestPageRSIPeriod').value) || 14;
             const rsiOverbought = parseFloat(document.getElementById('backtestPageRSIOverbought').value) || 60;
             const rsiOversold = parseFloat(document.getElementById('backtestPageRSIOversold').value) || 40;
+            const useNoEntryWindow = document.getElementById('backtestPageNoEntryWindow')?.checked ?? true;
             const periodLabel = days + ' Days';
             const resultsDiv = document.getElementById('backtestPageResults');
             const statsDiv = document.getElementById('backtestPageStats');
@@ -3138,6 +3159,7 @@
                 if (useRSI) {
                     apiUrl += '&use_rsi_filter=true&rsi_period=' + rsiPeriod + '&rsi_overbought=' + rsiOverbought + '&rsi_oversold=' + rsiOversold;
                 }
+                apiUrl += '&use_no_entry_window=' + useNoEntryWindow;
                 
                 const response = await fetch(apiUrl);
                 const contentType = response.headers.get('content-type');
@@ -3197,6 +3219,7 @@
             const rsiPeriod = parseInt(document.getElementById('backtestRSIPeriod')?.value) || 14;
             const rsiOverbought = parseFloat(document.getElementById('backtestRSIOverbought')?.value) || 60;
             const rsiOversold = parseFloat(document.getElementById('backtestRSIOversold')?.value) || 40;
+            const useNoEntryWindow = document.getElementById('backtestNoEntryWindow')?.checked ?? true;
             const periodLabel = days + ' Days';
             
             const backtestResults = document.getElementById('backtestResults');
@@ -3209,13 +3232,14 @@
             backtestTrades.innerHTML = '';
             backtestResultsTitle.textContent = `📊 Backtest Results (${periodLabel} - ${timeframe} Timeframe)`;
             
-            addToStrategyLog(`📊 Starting professional backtest: ${symbol}, ${days} days, ${timeframe}, Lots: ${lots}, EMA(${ema9},${ema21},${ema50}), SL: ${slPoints} points, Target: ${targetPoints} points${useRSI ? `, RSI(${rsiPeriod},${rsiOverbought},${rsiOversold})` : ''}`);
+            addToStrategyLog(`📊 Starting professional backtest: ${symbol}, ${days} days, ${timeframe}, Lots: ${lots}, EMA(${ema9},${ema21},${ema50}), SL: ${slPoints} points, Target: ${targetPoints} points${useRSI ? `, RSI(${rsiPeriod},${rsiOverbought},${rsiOversold})` : ''}, No-entry window: ${useNoEntryWindow ? 'ON' : 'OFF'}`);
             
             try {
                 let apiUrl = `/api/backtest?symbol=${symbol}&sl_points=${slPoints}&target_points=${targetPoints}&lots=${lots}&ema9=${ema9}&ema21=${ema21}&ema50=${ema50}&days=${days}&timeframe=${timeframe}`;
                 if (useRSI) {
                     apiUrl += `&use_rsi_filter=true&rsi_period=${rsiPeriod}&rsi_overbought=${rsiOverbought}&rsi_oversold=${rsiOversold}`;
                 }
+                apiUrl += `&use_no_entry_window=${useNoEntryWindow}`;
                 const response = await fetch(apiUrl);
                 
                 // Check if response is JSON
