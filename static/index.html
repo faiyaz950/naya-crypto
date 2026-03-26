@@ -1297,12 +1297,16 @@
             <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label style="display: flex; align-items: center; gap: 15px; cursor: pointer;">
-                        <input type="radio" name="loginType" value="app" id="appLogin" checked style="width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-weight: 600; color: #374151;">App Login</span>
+                        <input type="radio" name="loginType" value="key" id="keyLogin" checked style="width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #374151;">🔑 API Key Login (BYOK)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 15px; cursor: pointer; margin-top: 10px;">
+                        <input type="radio" name="loginType" value="byok" id="byokLogin" style="width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #374151;">🔐 Username/Password Login</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 15px; cursor: pointer; margin-top: 10px;">
                         <input type="radio" name="loginType" value="delta" id="deltaLogin" style="width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-weight: 600; color: #374151;">🔗 Delta Exchange Demo Login</span>
+                        <span style="font-weight: 600; color: #374151;">🧪 Delta Demo Login (Legacy)</span>
                     </label>
                 </div>
                 <div class="form-group">
@@ -1316,6 +1320,20 @@
                     >
                 </div>
                 <div class="form-group">
+                    <label for="loginExchange">Exchange (for key login)</label>
+                    <select id="loginExchange">
+                        <option value="delta" selected>Delta</option>
+                    </select>
+                </div>
+                <div class="form-group" id="apiKeyGroup">
+                    <label for="loginApiKey">API Key</label>
+                    <input type="text" id="loginApiKey" placeholder="Enter exchange API key" autocomplete="off">
+                </div>
+                <div class="form-group" id="apiSecretGroup">
+                    <label for="loginApiSecret">Secret Key</label>
+                    <input type="password" id="loginApiSecret" placeholder="Enter exchange secret key" autocomplete="off">
+                </div>
+                <div class="form-group">
                     <label for="password">Password</label>
                     <input 
                         type="password" 
@@ -1325,20 +1343,34 @@
                         autocomplete="current-password"
                     >
                 </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email (for BYOK account create)</label>
+                    <input 
+                        type="email" 
+                        id="registerEmail" 
+                        placeholder="Enter email for registration"
+                        autocomplete="email"
+                    >
+                </div>
                 <button type="submit" class="login-btn" id="loginBtn">Login</button>
+                <button type="button" class="login-btn" id="registerBtn" onclick="handleRegister()" style="margin-top: 10px; background: linear-gradient(135deg, #111827 0%, #374151 100%);">
+                    Create BYOK Account
+                </button>
             </form>
             <div class="login-footer">
                 <p style="font-size: 12px; color: #6b7280; margin-bottom: 12px;">⚠️ Page <strong>http://localhost:2000</strong> se hi kholen (file:// se nahi).</p>
                 <p><strong>Login Options:</strong></p>
                 <p style="font-size: 13px; margin-top: 8px;">
-                    <strong>App Login:</strong><br>
-                    Username: <code>admin</code> / Password: <code>admin123</code><br>
-                    Username: <code>user</code> / Password: <code>user123</code><br>
-                    <span style="opacity: 0.7;">(Ya koi bhi credentials use kar sakte hain - Demo Mode)</span>
+                    <strong>API Key Login (BYOK):</strong><br>
+                    <span style="opacity: 0.7;">Use exchange API key + secret. Profile auto-link/update ho jayega.</span>
+                </p>
+                <p style="font-size: 13px; margin-top: 10px;">
+                    <strong>Username/Password Login:</strong><br>
+                    <span style="opacity: 0.7;">Use platform credentials. Naya account create karne ke liye register button use karein.</span>
                 </p>
                 <p style="font-size: 13px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-                    <strong>Delta Exchange Demo Login:</strong><br>
-                    <span style="opacity: 0.7;">Delta Exchange Demo account ke credentials use karein</span><br>
+                    <strong>Delta Demo Login (Legacy):</strong><br>
+                    <span style="opacity: 0.7;">Old demo flow for testing only.</span><br>
                     <a href="https://demo.delta.exchange/app/login" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600; font-size: 12px;">Delta Exchange Demo Signup/Login</a>
                 </p>
             </div>
@@ -1365,7 +1397,11 @@
                 <span class="menu-item-icon">📈</span>
                 <span>Backtest</span>
             </div>
-            <!-- <button class="logout-btn" onclick="handleLogout()">🚪 Logout</button> -->
+            <div class="menu-item" onclick="showPage('profile')" id="menuProfile">
+                <span class="menu-item-icon">👤</span>
+                <span>Profile</span>
+            </div>
+            <button class="logout-btn" onclick="handleLogout()">🚪 Logout</button>
         </div>
 
         <!-- Main Content Area -->
@@ -1465,6 +1501,12 @@
                                 </select>
                             </div>
                             <div class="trading-form-group">
+                                <label>Exchange Account</label>
+                                <select id="tradeExchangeAccount">
+                                    <option value="">Loading accounts...</option>
+                                </select>
+                            </div>
+                            <div class="trading-form-group">
                                 <label>Order Type</label>
                                 <select id="orderType">
                                     <option value="market">Market</option>
@@ -1478,6 +1520,9 @@
                             <div class="trading-form-group" id="priceGroup">
                                 <label>Price (USDT)</label>
                                 <input type="number" id="tradePrice" placeholder="Auto" step="0.01" min="0.01">
+                            </div>
+                            <div id="tradeAccountStatus" style="font-size: 12px; color: #6b7280; margin-top: 6px;">
+                                Connect a Delta API key in Profile to enable BYOK trading.
                             </div>
                         </form>
                         <div class="trading-buttons">
@@ -1917,12 +1962,19 @@
                 <div class="strategies-container" style="max-width: 900px; margin: 0 auto;">
                     <div class="strategies-header">
                         <h1>📈 Strategy Backtest</h1>
-                        <p style="color: #6b7280; font-size: 16px; margin-top: 10px;">EMA Crossover strategy ko historical data par test karein (Delta Exchange)</p>
+                        <p style="color: #6b7280; font-size: 16px; margin-top: 10px;">EMA Crossover aur Range Breakout strategies ko historical data par test karein (Delta Exchange)</p>
                     </div>
                     <div class="strategies-content">
                         <div class="strategy-card" style="padding: 24px;">
                             <h3 style="margin-bottom: 20px;">📊 Backtest Parameters</h3>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                <div class="param-item">
+                                    <label>Strategy</label>
+                                    <select id="backtestPageStrategy" onchange="syncBacktestPageStrategyUI()">
+                                        <option value="ema-crossover" selected>EMA Crossover</option>
+                                        <option value="range-breakout">Range Breakout (Time Range + RSI)</option>
+                                    </select>
+                                </div>
                                 <div class="param-item">
                                     <label>Symbol</label>
                                     <select id="backtestPageSymbol">
@@ -1950,35 +2002,61 @@
                                         <option value="1d">1 Day</option>
                                     </select>
                                 </div>
-                                <div class="param-item">
-                                    <label>EMA 9</label>
-                                    <input type="number" id="backtestPageEma9" value="9" min="1" max="50">
+                                <div id="backtestPageEmaFields" style="display: contents;">
+                                    <div class="param-item">
+                                        <label>EMA 9</label>
+                                        <input type="number" id="backtestPageEma9" value="9" min="1" max="50">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>EMA 21</label>
+                                        <input type="number" id="backtestPageEma21" value="21" min="1" max="200">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>EMA 50</label>
+                                        <input type="number" id="backtestPageEma50" value="50" min="1" max="200">
+                                    </div>
                                 </div>
-                                <div class="param-item">
-                                    <label>EMA 21</label>
-                                    <input type="number" id="backtestPageEma21" value="21" min="1" max="200">
-                                </div>
-                                <div class="param-item">
-                                    <label>EMA 50</label>
-                                    <input type="number" id="backtestPageEma50" value="50" min="1" max="200">
-                                </div>
-                                <div class="param-item">
-                                    <label>SL (Points)</label>
-                                    <input type="number" id="backtestPageSL" value="400" min="1" step="1">
-                                </div>
-                                <div class="param-item">
-                                    <label>Target (Points)</label>
-                                    <input type="number" id="backtestPageTarget" value="800" min="1" step="1">
+                                <div id="backtestPageFixedRiskFields" style="display: contents;">
+                                    <div class="param-item">
+                                        <label>SL (Points)</label>
+                                        <input type="number" id="backtestPageSL" value="400" min="1" step="1">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>Target (Points)</label>
+                                        <input type="number" id="backtestPageTarget" value="800" min="1" step="1">
+                                    </div>
                                 </div>
                                 <div class="param-item">
                                     <label>Lots</label>
                                     <input type="number" id="backtestPageLots" value="1" min="0.01" step="0.01" title="Position size (lots) for P&amp;L calculation">
                                 </div>
                             </div>
+
+                            <!-- Range Breakout Params (shown only when selected) -->
+                            <div id="backtestPageRangeSection" style="display: none; margin-top: 10px; padding: 15px; background: linear-gradient(135deg, #eef2ff 0%, #ffffff 100%); border-radius: 12px; border: 2px solid #6366f1;">
+                                <h4 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px;">🟦 Range Breakout Settings (IST)</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                                    <div class="param-item">
+                                        <label>Range Start</label>
+                                        <input type="time" id="backtestPageRangeStart" value="11:00" step="60">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>Range End</label>
+                                        <input type="time" id="backtestPageRangeEnd" value="13:00" step="60">
+                                    </div>
+                                    <div class="param-item">
+                                        <label>Target Multiplier</label>
+                                        <input type="number" id="backtestPageRiskReward" value="2" min="0.1" step="0.1" title="Target = (SL distance) × Multiplier">
+                                    </div>
+                                </div>
+                                <p style="font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.4;">
+                                    💡 <strong>Logic:</strong> Range ke upar/neeche candle close ke baad, breakout candle ke high/low break par entry hoti hai, aur <strong>RSI filter mandatory</strong> hai.
+                                </p>
+                            </div>
                             
                             <!-- RSI Parameters Section -->
                             <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #fef3c7 0%, #ffffff 100%); border-radius: 12px; border: 2px solid #f59e0b;">
-                                <h4 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px;">📈 RSI Filter Settings (Optional)</h4>
+                                <h4 id="backtestPageRsiTitle" style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px;">📈 RSI Filter Settings (Optional)</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
                                     <div class="param-item">
                                         <label style="display: flex; align-items: center; gap: 8px;">
@@ -1991,11 +2069,11 @@
                                         <input type="number" id="backtestPageRSIPeriod" value="14" min="1" max="50" placeholder="14">
                                     </div>
                                     <div class="param-item">
-                                        <label>Overbought Level</label>
+                                        <label>RSI Upper</label>
                                         <input type="number" id="backtestPageRSIOverbought" value="60" min="50" max="100" placeholder="60">
                                     </div>
                                     <div class="param-item">
-                                        <label>Oversold Level</label>
+                                        <label>RSI Lower</label>
                                         <input type="number" id="backtestPageRSIOversold" value="40" min="0" max="50" placeholder="40">
                                     </div>
                                     <div class="param-item">
@@ -2005,7 +2083,7 @@
                                         </label>
                                     </div>
                                 </div>
-                                <p style="font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.4;">
+                                <p id="backtestPageRsiHint" style="font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.4;">
                                     💡 <strong>RSI Filter:</strong> Trades execute only when RSI ≤ Oversold OR RSI ≥ Overbought. 
                                     Trades blocked when RSI is between oversold and overbought levels.
                                 </p>
@@ -2034,6 +2112,93 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Profile Page -->
+            <div class="page" id="profilePage">
+                <div class="strategies-container" style="max-width: 980px; margin: 0 auto;">
+                    <div class="strategies-header">
+                        <h1>👤 Profile & Security</h1>
+                        <p style="color: #6b7280; font-size: 16px; margin-top: 10px;">Manage personal info, password and Delta API keys</p>
+                    </div>
+                    <div style="display: grid; gap: 16px;">
+                        <div class="strategy-card" style="padding: 20px;">
+                            <h3 style="margin-bottom: 12px;">🧾 Personal Info</h3>
+                            <div id="profileInfoStatus" style="font-size: 13px; color: #6b7280; margin-bottom: 12px;">Loading profile...</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+                                <div class="param-item">
+                                    <label>Username</label>
+                                    <input id="profileUsername" type="text" disabled>
+                                </div>
+                                <div class="param-item">
+                                    <label>Full Name</label>
+                                    <input id="profileFullName" type="text" maxlength="50" placeholder="Enter full name">
+                                </div>
+                                <div class="param-item">
+                                    <label>Email</label>
+                                    <input id="profileEmail" type="email" placeholder="name@example.com">
+                                </div>
+                                <div class="param-item">
+                                    <label>Email Verified</label>
+                                    <input id="profileEmailVerified" type="text" disabled>
+                                </div>
+                            </div>
+                            <div class="strategy-actions" style="margin-top: 14px;">
+                                <button class="btn-primary" onclick="saveProfileName()">💾 Save Name</button>
+                                <button class="btn-secondary" onclick="requestEmailOtp()">📨 Send Email OTP</button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 160px 190px; gap: 10px; margin-top: 12px;">
+                                <input id="profileOtpInput" type="text" maxlength="6" placeholder="Enter 6-digit OTP">
+                                <button class="btn-secondary" onclick="verifyEmailOtp()">✅ Verify OTP</button>
+                                <button class="btn-secondary" id="resendOtpBtn" onclick="requestEmailOtp()">Resend OTP</button>
+                            </div>
+                            <div id="otpTimer" style="margin-top: 8px; font-size: 12px; color: #6b7280;"></div>
+                        </div>
+
+                        <div class="strategy-card" style="padding: 20px;">
+                            <h3 style="margin-bottom: 12px;">🔐 Change Password</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                                <div class="param-item">
+                                    <label>Current Password</label>
+                                    <input id="currentPassword" type="password" placeholder="Current password">
+                                </div>
+                                <div class="param-item">
+                                    <label>New Password</label>
+                                    <input id="newPassword" type="password" placeholder="Minimum 8 characters">
+                                </div>
+                            </div>
+                            <div class="strategy-actions" style="margin-top: 14px;">
+                                <button class="btn-primary" onclick="changeProfilePassword()">🔄 Update Password</button>
+                            </div>
+                        </div>
+
+                        <div class="strategy-card" style="padding: 20px;">
+                            <h3 style="margin-bottom: 12px;">🔗 Delta API Key</h3>
+                            <div id="deltaApiStatusLine" style="font-size: 14px; margin-bottom: 12px; color: #374151;">Status: Not Added ⚪</div>
+                            <div id="deltaApiDetails" style="font-size: 12px; color: #4b5563; margin-bottom: 12px; line-height: 1.5;"></div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                                <div class="param-item">
+                                    <label>Label</label>
+                                    <input id="deltaApiLabel" type="text" value="Delta Primary">
+                                </div>
+                                <div class="param-item">
+                                    <label>API Key</label>
+                                    <input id="deltaApiKey" type="text" placeholder="Enter Delta API key">
+                                </div>
+                                <div class="param-item">
+                                    <label>Secret Key</label>
+                                    <input id="deltaApiSecret" type="password" placeholder="Enter Delta secret key">
+                                </div>
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">Only Trade + Read permissions allowed. Withdrawal must be disabled.</div>
+                            <div class="strategy-actions" style="margin-top: 14px;">
+                                <button class="btn-primary" onclick="saveDeltaApi()">💾 Add / Update Delta Key</button>
+                                <button class="btn-secondary" onclick="refreshDeltaApiStatus()">🔄 Check Status</button>
+                                <button class="btn-secondary" style="border-color: #fecaca; color: #b91c1c;" onclick="deleteDeltaApi()">🗑️ Delete Key</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2053,6 +2218,9 @@
             emaData: [],
             intervalId: null
         };
+        let byokTradeAccounts = [];
+        let otpResendInterval = null;
+        let otpResendLeftSec = 0;
 
         function isInNoEntryWindowIST(date = new Date()) {
             const parts = new Intl.DateTimeFormat('en-GB', {
@@ -2359,129 +2527,228 @@
             ? window.location.origin
             : 'http://localhost:2000';
 
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || '';
+        }
+
+        async function apiFetch(path, options = {}) {
+            const headers = options.headers ? { ...options.headers } : {};
+            const token = getAuthToken();
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            if (!headers['Content-Type'] && options.body && typeof options.body === 'string') {
+                headers['Content-Type'] = 'application/json';
+            }
+            const response = await fetch(API_BASE + path, { ...options, headers });
+            const contentType = response.headers.get('content-type') || '';
+            const payload = contentType.includes('application/json')
+                ? await response.json()
+                : { success: false, error: `Unexpected response type: ${contentType}` };
+            return { response, payload };
+        }
+
+        function getSelectedExchangeAccountId() {
+            const el = document.getElementById('tradeExchangeAccount');
+            if (!el) return null;
+            const val = (el.value || '').trim();
+            if (!val) return null;
+            const asNum = Number(val);
+            return Number.isFinite(asNum) ? asNum : null;
+        }
+
+        function renderTradeExchangeAccounts(accounts) {
+            const select = document.getElementById('tradeExchangeAccount');
+            const status = document.getElementById('tradeAccountStatus');
+            if (!select) return;
+            const current = select.value;
+            byokTradeAccounts = Array.isArray(accounts) ? accounts : [];
+            if (!byokTradeAccounts.length) {
+                select.innerHTML = '<option value="">No connected account</option>';
+                if (status) {
+                    status.textContent = 'No active Delta account found. Go to Profile -> Delta API Key.';
+                    status.style.color = '#b45309';
+                }
+                return;
+            }
+            select.innerHTML = byokTradeAccounts.map((acc) => {
+                const label = `${(acc.exchange || 'delta').toUpperCase()} | ${acc.label || 'Primary'} | ${acc.key_hint || '****'}`;
+                return `<option value="${acc.id}">${label}</option>`;
+            }).join('');
+            if (current && byokTradeAccounts.some((a) => String(a.id) === String(current))) {
+                select.value = current;
+            }
+            if (status) {
+                status.textContent = 'BYOK mode active. Orders will use selected exchange account.';
+                status.style.color = '#065f46';
+            }
+        }
+
+        async function loadTradeExchangeAccounts() {
+            const token = getAuthToken();
+            if (!token) {
+                renderTradeExchangeAccounts([]);
+                return;
+            }
+            try {
+                const { payload } = await apiFetch('/api/byok/exchange-accounts', { method: 'GET' });
+                if (!payload.success) {
+                    renderTradeExchangeAccounts([]);
+                    return;
+                }
+                const usable = (payload.data || []).filter((a) =>
+                    a && a.is_active && a.exchange === 'delta' && a.permissions_verified && a.can_trade && !a.can_withdraw
+                );
+                renderTradeExchangeAccounts(usable);
+            } catch (error) {
+                console.error('Failed to load BYOK accounts:', error);
+                renderTradeExchangeAccounts([]);
+            }
+        }
+
+        function onLoginSuccess({ username, loginType, token, fullName }) {
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('username', username || 'User');
+            localStorage.setItem('loginType', loginType || 'byok');
+            if (token) localStorage.setItem('authToken', token);
+            if (fullName) localStorage.setItem('fullName', fullName);
+
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('appLayout').classList.add('active');
+            const displayName = fullName || localStorage.getItem('username') || 'User';
+            document.getElementById('userGreeting').textContent = `Welcome, ${displayName}!`;
+
+            setTimeout(() => {
+                if (typeof LightweightCharts === 'undefined') {
+                    document.getElementById('error').textContent = 'Chart library load nahi hui. Page refresh karein.';
+                    document.getElementById('error').style.display = 'block';
+                    return;
+                }
+                try {
+                    initChart();
+                } catch (error) {
+                    console.error('Chart initialization error:', error);
+                }
+                loadOrders();
+                loadPositions();
+                loadTradeExchangeAccounts();
+            }, 100);
+        }
+
         // Login Handler
         async function handleLogin(event) {
             event.preventDefault();
             
             const username = (document.getElementById('username').value || '').trim();
             const password = document.getElementById('password').value || '';
+            const exchange = (document.getElementById('loginExchange').value || 'delta').trim().toLowerCase();
+            const apiKey = (document.getElementById('loginApiKey').value || '').trim();
+            const apiSecret = (document.getElementById('loginApiSecret').value || '').trim();
             const loginBtn = document.getElementById('loginBtn');
             const loginType = document.querySelector('input[name="loginType"]:checked').value;
-            
-            if (!username || !password) {
+            const isKeyLogin = loginType === 'key';
+
+            if (isKeyLogin) {
+                if (!apiKey || !apiSecret) {
+                    alert('Please enter API key and secret for key login');
+                    return;
+                }
+            } else if (!username || !password) {
                 alert('Please enter username and password');
                 return;
             }
             
             // Disable button
             loginBtn.disabled = true;
-            loginBtn.textContent = loginType === 'delta' ? 'Connecting to Delta Exchange...' : 'Logging in...';
+            loginBtn.textContent = loginType === 'delta'
+                ? 'Connecting to Delta Exchange...'
+                : (isKeyLogin ? 'Logging in with API key...' : 'Logging in with BYOK...');
             
             try {
-                // Choose endpoint based on login type
-                const endpoint = API_BASE + (loginType === 'delta' ? '/api/delta-demo-login' : '/api/login');
-                
-                console.log(`🔗 Calling endpoint: ${endpoint} with login type: ${loginType}`);
-                
-                // Send login data to backend
-                const response = await fetch(endpoint, {
+                let authPath = '/api/auth/login';
+                let authBody = { username, password, login_type: loginType };
+                if (loginType === 'delta') {
+                    authPath = '/api/delta-demo-login';
+                } else if (isKeyLogin) {
+                    authPath = '/api/auth/key-login';
+                    authBody = {
+                        exchange,
+                        api_key: apiKey,
+                        secret_key: apiSecret,
+                        label: `${exchange.toUpperCase()} Primary`,
+                    };
+                }
+                const { response, payload: data } = await apiFetch(authPath, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password,
-                        login_type: loginType
-                    })
-                }).catch(error => {
-                    console.error('Fetch error:', error);
-                    throw new Error('Network error: Server se connect nahi ho raha. Server running hai?');
+                    body: JSON.stringify(authBody),
                 });
                 
-                console.log(`📡 Response status: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
-                
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text.substring(0, 500));
-                    
-                    if (response.status === 404) {
-                        throw new Error(`Endpoint not found (404). Server restart karein: python3 backend_api.py`);
-                    }
-                    
-                    throw new Error(`Server error: Expected JSON but got ${contentType}. Status: ${response.status}. Server restart karein.`);
-                }
-                
-                let data;
-                try {
-                    data = await response.json();
-                    console.log('✅ Login response:', data);
-                } catch (jsonError) {
-                    console.error('❌ JSON parse error:', jsonError);
-                    const text = await response.text();
-                    throw new Error(`Invalid JSON response: ${text.substring(0, 200)}`);
-                }
-                
                 if (data && data.success) {
-                    console.log('✅ Login successful, redirecting...');
-                    // Store login state in localStorage
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('loginType', loginType);
-                    
                     if (loginType === 'delta') {
                         localStorage.setItem('deltaLoggedIn', 'true');
-                        console.log('✅ Delta Exchange Demo login successful');
                         if (data.warning) {
                             setTimeout(() => alert('⚠️ ' + data.warning), 100);
                         }
-                    } else {
-                        console.log('✅ App login successful, data saved to backend');
                     }
-                    
-                    // Hide login, show app layout
-                    document.getElementById('loginContainer').classList.add('hidden');
-                    document.getElementById('appLayout').classList.add('active');
-                    
-                    // Update user greeting (use displayName to avoid shadowing outer username)
-                    const displayName = localStorage.getItem('username') || 'User';
-                    document.getElementById('userGreeting').textContent = `Welcome, ${displayName}!`;
-                    
-                    // Initialize chart after login
-                    setTimeout(() => {
-                        if (typeof LightweightCharts === 'undefined') {
-                            document.getElementById('error').textContent = 'Chart library load nahi hui. Page refresh karein.';
-                            document.getElementById('error').style.display = 'block';
-                            return;
-                        }
-                        
-                        try {
-                            initChart();
-                        } catch (error) {
-                            console.error('Chart initialization error:', error);
-                            document.getElementById('error').textContent = `Chart error: ${error.message}`;
-                            document.getElementById('error').style.display = 'block';
-                        }
-                    }, 100);
+                    onLoginSuccess({
+                        username: data?.user?.username || username || `${exchange}_user`,
+                        fullName: data?.user?.full_name || '',
+                        loginType: isKeyLogin ? 'key' : loginType,
+                        token: data?.token || '',
+                    });
                 } else {
                     const errorMsg = data?.error || data?.message || 'Unknown error';
-                    console.error('❌ Login failed:', errorMsg);
-                    alert('Login failed: ' + errorMsg);
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Login';
+                    if (response.status === 401 && loginType === 'byok') {
+                        alert('Login failed. Account nahi hai to "Create BYOK Account" use karein.\n\nDetails: ' + errorMsg);
+                    } else {
+                        alert('Login failed: ' + errorMsg);
+                    }
                 }
             } catch (error) {
                 console.error('❌ Login error:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name
-                });
-                alert('Login error: ' + error.message + '\n\nConsole mein detailed error check karein (F12 press karein)');
+                alert('Login error: ' + error.message);
+            } finally {
                 loginBtn.disabled = false;
-                loginBtn.textContent = 'Login';
+                if (loginType === 'delta') {
+                    loginBtn.textContent = '🔗 Login with Delta Exchange Demo';
+                } else if (isKeyLogin) {
+                    loginBtn.textContent = '🔑 Login with API Key';
+                } else {
+                    loginBtn.textContent = '🔐 Login with BYOK Account';
+                }
+            }
+        }
+
+        async function handleRegister() {
+            const username = (document.getElementById('username').value || '').trim();
+            const password = document.getElementById('password').value || '';
+            const email = (document.getElementById('registerEmail').value || '').trim();
+            if (!username || !password || !email) {
+                alert('Username, password and email required for register');
+                return;
+            }
+            const registerBtn = document.getElementById('registerBtn');
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Creating BYOK account...';
+            try {
+                const { payload } = await apiFetch('/api/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password, email }),
+                });
+                if (!payload.success) {
+                    alert('Register failed: ' + (payload.error || 'Unknown error'));
+                    return;
+                }
+                alert('Account created successfully. You are now logged in.');
+                onLoginSuccess({
+                    username: payload?.user?.username || username,
+                    fullName: payload?.user?.full_name || '',
+                    loginType: 'byok',
+                    token: payload?.token || '',
+                });
+            } catch (error) {
+                alert('Register error: ' + error.message);
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Create BYOK Account';
             }
         }
 
@@ -2489,18 +2756,68 @@
         document.addEventListener('DOMContentLoaded', () => {
             const loginTypeRadios = document.querySelectorAll('input[name="loginType"]');
             const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const apiKeyInput = document.getElementById('loginApiKey');
+            const apiSecretInput = document.getElementById('loginApiSecret');
+            const usernameGroup = document.getElementById('username')?.closest('.form-group');
+            const passwordGroup = document.getElementById('password')?.closest('.form-group');
+            const registerEmailGroup = document.getElementById('registerEmail')?.closest('.form-group');
+            const exchangeGroup = document.getElementById('loginExchange')?.closest('.form-group');
+            const apiKeyGroup = document.getElementById('apiKeyGroup');
+            const apiSecretGroup = document.getElementById('apiSecretGroup');
+
+            const applyLoginModeUi = (mode) => {
+                const isDelta = mode === 'delta';
+                const isKey = mode === 'key';
+                const isByok = mode === 'byok';
+
+                if (isDelta) {
+                    loginBtn.textContent = '🔗 Login with Delta Exchange Demo';
+                    loginBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                } else if (isKey) {
+                    loginBtn.textContent = '🔑 Login with API Key';
+                    loginBtn.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+                } else {
+                    loginBtn.textContent = '🔐 Login with BYOK Account';
+                    loginBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                }
+
+                if (usernameGroup) usernameGroup.style.display = isKey ? 'none' : 'block';
+                if (passwordGroup) passwordGroup.style.display = isKey ? 'none' : 'block';
+                if (registerEmailGroup) registerEmailGroup.style.display = isByok ? 'block' : 'none';
+                if (exchangeGroup) exchangeGroup.style.display = isKey ? 'block' : 'none';
+                if (apiKeyGroup) apiKeyGroup.style.display = isKey ? 'block' : 'none';
+                if (apiSecretGroup) apiSecretGroup.style.display = isKey ? 'block' : 'none';
+                if (registerBtn) registerBtn.style.display = isByok ? 'block' : 'none';
+                if (usernameInput) {
+                    usernameInput.required = !isKey;
+                    usernameInput.disabled = isKey;
+                }
+                if (passwordInput) {
+                    passwordInput.required = !isKey;
+                    passwordInput.disabled = isKey;
+                }
+                if (apiKeyInput) {
+                    apiKeyInput.required = isKey;
+                    apiKeyInput.disabled = !isKey;
+                }
+                if (apiSecretInput) {
+                    apiSecretInput.required = isKey;
+                    apiSecretInput.disabled = !isKey;
+                }
+            };
             
             loginTypeRadios.forEach(radio => {
                 radio.addEventListener('change', () => {
-                    if (radio.value === 'delta') {
-                        loginBtn.textContent = '🔗 Login with Delta Exchange Demo';
-                        loginBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                    } else {
-                        loginBtn.textContent = 'Login';
-                        loginBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-                    }
+                    applyLoginModeUi(radio.value);
                 });
             });
+            const selected = document.querySelector('input[name="loginType"]:checked');
+            if (selected) {
+                applyLoginModeUi(selected.value);
+            }
         });
 
         // Page Navigation
@@ -2539,15 +2856,24 @@
                     }
                 }, 100);
             }
+            if (pageName === 'profile') {
+                loadProfilePage();
+            }
         }
 
         // Logout Handler
         function handleLogout() {
             if (confirm('Kya aap logout karna chahte hain?')) {
+                const token = getAuthToken();
+                if (token) {
+                    apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => null);
+                }
                 localStorage.removeItem('isLoggedIn');
                 localStorage.removeItem('username');
                 localStorage.removeItem('loginType');
                 localStorage.removeItem('deltaLoggedIn');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('fullName');
                 
                 // Hide app layout, show login
                 document.getElementById('appLayout').classList.remove('active');
@@ -2564,6 +2890,8 @@
             const orderType = document.getElementById('orderType').value;
             const quantity = parseFloat(document.getElementById('tradeQuantity').value);
             const price = document.getElementById('tradePrice').value ? parseFloat(document.getElementById('tradePrice').value) : null;
+            const exchangeAccountId = getSelectedExchangeAccountId();
+            const token = getAuthToken();
 
             if (!quantity || quantity <= 0) {
                 alert('Please enter a valid quantity');
@@ -2582,23 +2910,36 @@
             }
 
             try {
-                // Try demo endpoint first, fallback to delta
-                const endpoint = '/api/place-order';
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        symbol: symbol,
-                        side: side,
-                        order_type: orderType,
-                        quantity: quantity,
-                        price: price
-                    })
-                });
-
-                const data = await response.json();
+                let data = null;
+                if (token && exchangeAccountId) {
+                    const byokResp = await apiFetch('/api/byok/orders', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            exchange_account_id: exchangeAccountId,
+                            symbol: symbol,
+                            side: side,
+                            order_type: orderType,
+                            quantity: quantity,
+                            price: price
+                        })
+                    });
+                    data = byokResp.payload;
+                } else {
+                    const response = await fetch('/api/place-order', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            symbol: symbol,
+                            side: side,
+                            order_type: orderType,
+                            quantity: quantity,
+                            price: price
+                        })
+                    });
+                    data = await response.json();
+                }
 
                 if (data.success) {
                     alert(`✅ ${side.toUpperCase()} order placed successfully!`);
@@ -2611,7 +2952,7 @@
                 }
             } catch (error) {
                 console.error('Order error:', error);
-                alert(`❌ Order error: ${error.message}\n\nNote: Demo mode - actual order placement requires Delta Exchange connection`);
+                alert(`❌ Order error: ${error.message}`);
                 // In demo mode, still update UI
                 updateActivity(side, symbol, quantity, price);
             }
@@ -2643,18 +2984,31 @@
 
         async function loadOrders() {
             try {
-                // Try demo endpoint first
-                let response = await fetch('/api/orders').catch(() => null);
-                if (!response || !response.ok) {
-                    response = await fetch('/api/delta/orders');
+                const token = getAuthToken();
+                const exchangeAccountId = getSelectedExchangeAccountId();
+                let data = null;
+                if (token && exchangeAccountId) {
+                    const byokResp = await apiFetch(`/api/byok/orders?exchange_account_id=${encodeURIComponent(exchangeAccountId)}&limit=100`, { method: 'GET' });
+                    data = byokResp.payload;
+                } else {
+                    // Try demo endpoint first
+                    let response = await fetch('/api/orders').catch(() => null);
+                    if (!response || !response.ok) {
+                        response = await fetch('/api/delta/orders');
+                    }
+                    data = await response.json();
                 }
-                
-                const data = await response.json();
                 
                 if (data.success && data.data) {
                     const orders = data.data;
-                    const openOrders = orders.filter(o => o.status === 'pending' || o.status === 'open');
-                    const closedOrders = orders.filter(o => o.status === 'filled' || o.status === 'closed').slice(0, 5);
+                    const openOrders = orders.filter(o => {
+                        const s = String(o.status || '').toLowerCase();
+                        return ['pending', 'open', 'submitted', 'new', 'partially_filled'].includes(s);
+                    });
+                    const closedOrders = orders.filter(o => {
+                        const s = String(o.status || '').toLowerCase();
+                        return ['filled', 'closed', 'cancelled', 'rejected', 'canceled'].includes(s);
+                    }).slice(0, 5);
                     
                     // Update open orders display
                     const openOrdersDiv = document.getElementById('openOrders');
@@ -2710,16 +3064,27 @@
             const positionsGrid = document.getElementById('positionsGrid');
             const positionsError = document.getElementById('positionsError');
             try {
-                const response = await fetch('/api/delta/positions');
-                const data = await response.json();
+                const token = getAuthToken();
+                const exchangeAccountId = getSelectedExchangeAccountId();
+                let data = null;
+                if (token && exchangeAccountId) {
+                    const byokResp = await apiFetch(`/api/byok/positions?exchange_account_id=${encodeURIComponent(exchangeAccountId)}`, { method: 'GET' });
+                    data = byokResp.payload;
+                } else {
+                    const response = await fetch('/api/delta/positions');
+                    data = await response.json();
+                }
                 
                 if (positionsError) {
                     positionsError.style.display = 'none';
                     positionsError.textContent = '';
                 }
-                if (data.success && data.data) {
-                    if (positionsGrid && data.data.length > 0) {
-                        positionsGrid.innerHTML = data.data.map(position => {
+                const positionsArray = Array.isArray(data.data)
+                    ? data.data
+                    : (Array.isArray(data.data?.result) ? data.data.result : []);
+                if (data.success && positionsArray) {
+                    if (positionsGrid && positionsArray.length > 0) {
+                        positionsGrid.innerHTML = positionsArray.map(position => {
                             const pnl = position.unrealized_pnl || 0;
                             const pnlClass = pnl >= 0 ? 'positive' : 'negative';
                             return `
@@ -2777,6 +3142,13 @@
             if (chartSymbol && tradeSymbol) {
                 chartSymbol.addEventListener('change', () => {
                     tradeSymbol.value = chartSymbol.value;
+                });
+            }
+            const tradeExchangeAccount = document.getElementById('tradeExchangeAccount');
+            if (tradeExchangeAccount) {
+                tradeExchangeAccount.addEventListener('change', () => {
+                    loadOrders();
+                    loadPositions();
                 });
             }
 
@@ -3035,21 +3407,37 @@
                 addToStrategyLog(`📤 Placing ${side.toUpperCase()} order: ${quantity} ${symbol}`);
                 addToStrategyLog(`💰 Entry: ${entryPrice.toFixed(2)}, SL: ${slPrice.toFixed(2)}, Target: ${targetPrice.toFixed(2)}`);
                 
-                // Use Delta Exchange API for live orders
-                const response = await fetch('/api/delta/place-order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        symbol: symbol,
-                        side: side,
-                        order_type: 'market',
-                        quantity: quantity
-                    })
-                });
-
-                const data = await response.json();
+                const exchangeAccountId = getSelectedExchangeAccountId();
+                const token = getAuthToken();
+                let data = null;
+                if (token && exchangeAccountId) {
+                    const byokResp = await apiFetch('/api/byok/orders', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            exchange_account_id: exchangeAccountId,
+                            symbol: symbol,
+                            side: side,
+                            order_type: 'market',
+                            quantity: quantity
+                        })
+                    });
+                    data = byokResp.payload;
+                } else {
+                    // Legacy fallback (demo mode)
+                    const response = await fetch('/api/delta/place-order', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            symbol: symbol,
+                            side: side,
+                            order_type: 'market',
+                            quantity: quantity
+                        })
+                    });
+                    data = await response.json();
+                }
 
                 if (data.success) {
                     const successMsg = `✅ Strategy ${side.toUpperCase()} order placed on Delta Exchange: ${quantity} ${symbol} @ Market`;
@@ -3457,6 +3845,7 @@ ${workbookSheets}
         }
 
         async function runBacktestFromPage() {
+            const strategy = (document.getElementById('backtestPageStrategy')?.value || 'ema-crossover').toLowerCase();
             const symbol = document.getElementById('backtestPageSymbol').value;
             const slPoints = parseFloat(document.getElementById('backtestPageSL').value) || 400;
             const targetPoints = parseFloat(document.getElementById('backtestPageTarget').value) || 800;
@@ -3473,6 +3862,9 @@ ${workbookSheets}
             const rsiOverbought = parseFloat(document.getElementById('backtestPageRSIOverbought').value) || 60;
             const rsiOversold = parseFloat(document.getElementById('backtestPageRSIOversold').value) || 40;
             const useNoEntryWindow = document.getElementById('backtestPageNoEntryWindow')?.checked ?? true;
+            const rangeStart = document.getElementById('backtestPageRangeStart')?.value || '11:00';
+            const rangeEnd = document.getElementById('backtestPageRangeEnd')?.value || '13:00';
+            const riskReward = parseFloat(document.getElementById('backtestPageRiskReward')?.value) || 2;
             const periodLabel = days + ' Days';
             const resultsDiv = document.getElementById('backtestPageResults');
             const statsDiv = document.getElementById('backtestPageStats');
@@ -3485,13 +3877,21 @@ ${workbookSheets}
             if (statsDiv) statsDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #6b7280;">Loading...</div>';
             if (tradesDiv) tradesDiv.innerHTML = '';
             try {
-                let apiUrl = '/api/backtest?symbol=' + encodeURIComponent(symbol) + '&sl_points=' + slPoints + '&target_points=' + targetPoints + '&lots=' + lots + '&ema9=' + ema9 + '&ema21=' + ema21 + '&ema50=' + ema50 + '&days=' + days + '&timeframe=' + encodeURIComponent(timeframe);
+                let apiUrl = '/api/backtest?strategy=' + encodeURIComponent(strategy) + '&symbol=' + encodeURIComponent(symbol) + '&lots=' + lots + '&days=' + days + '&timeframe=' + encodeURIComponent(timeframe);
                 
-                // Add RSI parameters if enabled
-                if (useRSI) {
+                if (strategy === 'ema-crossover') {
+                    apiUrl += '&sl_points=' + slPoints + '&target_points=' + targetPoints + '&ema9=' + ema9 + '&ema21=' + ema21 + '&ema50=' + ema50;
+                    // Add RSI parameters if enabled
+                    if (useRSI) {
+                        apiUrl += '&use_rsi_filter=true&rsi_period=' + rsiPeriod + '&rsi_overbought=' + rsiOverbought + '&rsi_oversold=' + rsiOversold;
+                    }
+                    apiUrl += '&use_no_entry_window=' + useNoEntryWindow;
+                } else {
+                    // Range Breakout: RSI mandatory + range window
                     apiUrl += '&use_rsi_filter=true&rsi_period=' + rsiPeriod + '&rsi_overbought=' + rsiOverbought + '&rsi_oversold=' + rsiOversold;
+                    apiUrl += '&range_timezone=Asia%2FKolkata&range_start=' + encodeURIComponent(rangeStart) + '&range_end=' + encodeURIComponent(rangeEnd) + '&risk_reward=' + encodeURIComponent(String(riskReward));
+                    apiUrl += '&use_no_entry_window=false';
                 }
-                apiUrl += '&use_no_entry_window=' + useNoEntryWindow;
                 
                 const response = await fetch(apiUrl);
                 const contentType = response.headers.get('content-type');
@@ -3502,12 +3902,14 @@ ${workbookSheets}
                 const data = await response.json();
                 if (loadingDiv) loadingDiv.style.display = 'none';
                 if (data.success) {
+                    const strategyLabel = data.strategy ? (data.strategy === 'range-breakout' ? 'Range Breakout' : 'EMA Crossover') : '';
                     const emaInfo = data.ema_periods ? 'EMA(' + data.ema_periods.ema9 + ',' + data.ema_periods.ema21 + ',' + data.ema_periods.ema50 + ')' : '';
                     const rsiInfo = data.rsi_settings && data.rsi_settings.enabled ? 'RSI(' + data.rsi_settings.period + ',' + data.rsi_settings.overbought + ',' + data.rsi_settings.oversold + ')' : '';
+                    const rangeInfo = data.range_settings ? ('Range ' + (data.range_settings.start || '') + '→' + (data.range_settings.end || '') + ' IST · 1:' + (data.range_settings.risk_reward || 2)) : '';
                     const lotsLabel = (data.lots && data.lots !== 1) ? ' (' + data.lots + ' lots)' : '';
                     var daysSub = (data.days_requested != null && data.days_covered != null && data.days_covered < data.days_requested) ? ('of ' + data.days_requested + ' requested · ' + (data.total_candles || 0) + ' candles') : ((data.total_candles || 0) + ' candles');
                     var daysLimitedNote = (data.days_requested != null && data.days_covered != null && data.days_covered < data.days_requested) ? '<div style="font-size: 10px; color: #b45309; margin-top: 4px;">Exchange limited history for this timeframe</div>' : '';
-                    statsDiv.innerHTML = '<div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Completed Trades</div><div style="font-size: 24px; font-weight: 700; color: #374151;">' + data.total_trades + '</div>' + (data.total_signals ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">' + data.total_signals + ' signals</div>' : '') + (emaInfo ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">' + emaInfo + '</div>' : '') + (rsiInfo ? '<div style="font-size: 10px; color: #f59e0b; margin-top: 3px;">' + rsiInfo + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Win Rate</div><div style="font-size: 24px; font-weight: 700; color: #10b981;">' + data.win_rate + '%</div></div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Winning</div><div style="font-size: 24px; font-weight: 700; color: #10b981;">' + data.winning_trades + '</div>' + (data.target_hits !== undefined ? '<div style="font-size: 10px; color: #9ca3af;">Target: ' + data.target_hits + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Losing</div><div style="font-size: 24px; font-weight: 700; color: #ef4444;">' + data.losing_trades + '</div>' + (data.sl_hits !== undefined ? '<div style="font-size: 10px; color: #9ca3af;">SL: ' + data.sl_hits + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Total Profit' + lotsLabel + '</div><div style="font-size: 24px; font-weight: 700; color: ' + (data.total_profit >= 0 ? '#10b981' : '#ef4444') + ';">' + (data.total_profit >= 0 ? '+' : '') + data.total_profit.toFixed(2) + '</div></div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Days (data used)</div><div style="font-size: 20px; font-weight: 700;">' + (data.days_covered != null ? data.days_covered : (data.days_requested || days)) + '</div><div style="font-size: 10px; color: #9ca3af;">' + daysSub + '</div>' + daysLimitedNote + '</div>';
+                    statsDiv.innerHTML = '<div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Completed Trades</div><div style="font-size: 24px; font-weight: 700; color: #374151;">' + data.total_trades + '</div>' + (data.total_signals ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 5px;">' + data.total_signals + ' signals</div>' : '') + (strategyLabel ? '<div style="font-size: 10px; color: #6366f1; margin-top: 3px; font-weight: 700;">' + strategyLabel + '</div>' : '') + (emaInfo ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 3px;">' + emaInfo + '</div>' : '') + (rangeInfo ? '<div style="font-size: 10px; color: #6366f1; margin-top: 3px;">' + rangeInfo + '</div>' : '') + (rsiInfo ? '<div style="font-size: 10px; color: #f59e0b; margin-top: 3px;">' + rsiInfo + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Win Rate</div><div style="font-size: 24px; font-weight: 700; color: #10b981;">' + data.win_rate + '%</div></div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Winning</div><div style="font-size: 24px; font-weight: 700; color: #10b981;">' + data.winning_trades + '</div>' + (data.target_hits !== undefined ? '<div style="font-size: 10px; color: #9ca3af;">Target: ' + data.target_hits + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Losing</div><div style="font-size: 24px; font-weight: 700; color: #ef4444;">' + data.losing_trades + '</div>' + (data.sl_hits !== undefined ? '<div style="font-size: 10px; color: #9ca3af;">SL: ' + data.sl_hits + '</div>' : '') + '</div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Total Profit' + lotsLabel + '</div><div style="font-size: 24px; font-weight: 700; color: ' + (data.total_profit >= 0 ? '#10b981' : '#ef4444') + ';">' + (data.total_profit >= 0 ? '+' : '') + data.total_profit.toFixed(2) + '</div></div><div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="font-size: 11px; color: #6b7280; margin-bottom: 5px;">Days (data used)</div><div style="font-size: 20px; font-weight: 700;">' + (data.days_covered != null ? data.days_covered : (data.days_requested || days)) + '</div><div style="font-size: 10px; color: #9ca3af;">' + daysSub + '</div>' + daysLimitedNote + '</div>';
                     if (data.trades && data.trades.length > 0) {
                         tradesDiv.innerHTML = '<div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 10px;">Recent Trades</div>' + data.trades.map(function(trade) {
                             var entryDate = new Date(trade.entry_time).toLocaleString();
@@ -3521,6 +3923,7 @@ ${workbookSheets}
                     }
                     lastBacktestPageResult = { data, symbol, periodLabel, timeframe };
                     appendBacktestReport('page', {
+                        strategy: data.strategy || strategy,
                         symbol,
                         timeframe,
                         days,
@@ -3531,6 +3934,9 @@ ${workbookSheets}
                         rsiPeriod: data.rsi_settings?.period ?? rsiPeriod,
                         rsiOverbought: data.rsi_settings?.overbought ?? rsiOverbought,
                         rsiOversold: data.rsi_settings?.oversold ?? rsiOversold,
+                        rangeStart: data.range_settings?.start ?? rangeStart,
+                        rangeEnd: data.range_settings?.end ?? rangeEnd,
+                        riskReward: data.range_settings?.risk_reward ?? riskReward,
                         noEntryWindow: !!data.use_no_entry_window,
                         lots: data.lots || lots,
                         slPoints: data.sl_points || slPoints,
@@ -3556,6 +3962,34 @@ ${workbookSheets}
                 if (loadingDiv) loadingDiv.style.display = 'none';
                 statsDiv.innerHTML = '<div style="padding: 20px; color: #ef4444;"><div style="font-weight: 600;">❌ Error</div><div style="font-size: 13px;">' + err.message + '</div></div>';
                 tradesDiv.innerHTML = '';
+            }
+        }
+
+        function syncBacktestPageStrategyUI() {
+            const strategy = (document.getElementById('backtestPageStrategy')?.value || 'ema-crossover').toLowerCase();
+            const emaFields = document.getElementById('backtestPageEmaFields');
+            const fixedRiskFields = document.getElementById('backtestPageFixedRiskFields');
+            const rangeSection = document.getElementById('backtestPageRangeSection');
+            const rsiTitle = document.getElementById('backtestPageRsiTitle');
+            const rsiHint = document.getElementById('backtestPageRsiHint');
+            const useRsiEl = document.getElementById('backtestPageUseRSI');
+            const noEntryEl = document.getElementById('backtestPageNoEntryWindow');
+            if (strategy === 'range-breakout') {
+                if (emaFields) emaFields.style.display = 'none';
+                if (fixedRiskFields) fixedRiskFields.style.display = 'none';
+                if (rangeSection) rangeSection.style.display = 'block';
+                if (rsiTitle) rsiTitle.textContent = '📈 RSI Settings (Required for Range Breakout)';
+                if (rsiHint) rsiHint.innerHTML = '💡 <strong>Rule:</strong> BUY only when RSI &gt; Upper, SELL only when RSI &lt; Lower (entry breakout candle high/low break par).';
+                if (useRsiEl) { useRsiEl.checked = true; useRsiEl.disabled = true; }
+                if (noEntryEl) { noEntryEl.checked = false; noEntryEl.disabled = true; }
+            } else {
+                if (emaFields) emaFields.style.display = 'contents';
+                if (fixedRiskFields) fixedRiskFields.style.display = 'contents';
+                if (rangeSection) rangeSection.style.display = 'none';
+                if (rsiTitle) rsiTitle.textContent = '📈 RSI Filter Settings (Optional)';
+                if (rsiHint) rsiHint.innerHTML = '💡 <strong>RSI Filter:</strong> Trades execute only when RSI ≤ Oversold OR RSI ≥ Overbought. Trades blocked when RSI is between oversold and overbought levels.';
+                if (useRsiEl) { useRsiEl.disabled = false; }
+                if (noEntryEl) { noEntryEl.disabled = false; }
             }
         }
 
@@ -3735,6 +4169,234 @@ ${workbookSheets}
             }
         }
 
+        async function loadProfilePage() {
+            const info = document.getElementById('profileInfoStatus');
+            if (info) info.textContent = 'Loading profile...';
+            try {
+                const { payload } = await apiFetch('/api/profile', { method: 'GET' });
+                if (!payload.success) {
+                    throw new Error(payload.error || 'Failed to load profile');
+                }
+                const user = payload.data?.user || {};
+                const delta = payload.data?.delta_api || {};
+                const exchangeProfile = delta.exchange_profile || {};
+                document.getElementById('profileUsername').value = user.username || '';
+                document.getElementById('profileFullName').value = user.full_name || exchangeProfile.account_name || '';
+                document.getElementById('profileEmail').value = user.email || exchangeProfile.exchange_email || '';
+                document.getElementById('profileEmailVerified').value = user.email_verified ? 'Yes ✅' : 'No ❌';
+                document.getElementById('deltaApiStatusLine').textContent = `Status: ${delta.status_label || 'Not Added ⚪'}`;
+                if (delta.label) {
+                    document.getElementById('deltaApiLabel').value = delta.label;
+                }
+                renderDeltaApiDetails(delta);
+                if (info) info.textContent = 'Profile loaded';
+            } catch (error) {
+                if (info) info.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function boolBadge(value, okText = 'Yes', noText = 'No') {
+            return value ? `${okText} ✅` : `${noText} ❌`;
+        }
+
+        function formatTime(value) {
+            if (!value) return '-';
+            const dt = new Date(value);
+            if (Number.isNaN(dt.getTime())) return value;
+            return dt.toLocaleString();
+        }
+
+        function renderDeltaApiDetails(delta = {}) {
+            const box = document.getElementById('deltaApiDetails');
+            if (!box) return;
+            if (!delta || !delta.account_id) {
+                box.innerHTML = '<div>No key linked yet. Add your Delta API key to enable live BYOK trading.</div>';
+                return;
+            }
+            const exchangeProfile = delta.exchange_profile || {};
+            const walletSnapshot = delta.wallet_snapshot || {};
+            const authProof = delta.auth_proof || {};
+            const permissionsText = Array.isArray(exchangeProfile.permissions) && exchangeProfile.permissions.length
+                ? exchangeProfile.permissions.join(', ')
+                : '-';
+            const whitelistedIpsText = Array.isArray(exchangeProfile.whitelisted_ips) && exchangeProfile.whitelisted_ips.length
+                ? exchangeProfile.whitelisted_ips.join(', ')
+                : '-';
+            const walletAssetsText = Array.isArray(walletSnapshot.non_zero_assets) && walletSnapshot.non_zero_assets.length
+                ? walletSnapshot.non_zero_assets.join(', ')
+                : '-';
+            box.innerHTML = `
+                <div><strong>Account ID:</strong> ${delta.account_id || '-'}</div>
+                <div><strong>Label:</strong> ${delta.label || '-'}</div>
+                <div><strong>Key Hint:</strong> ${delta.key_hint || '-'}</div>
+                <div><strong>API Fingerprint:</strong> ${delta.api_key_fingerprint_masked || '-'}</div>
+                <div><strong>Account Name:</strong> ${exchangeProfile.account_name || '-'}</div>
+                <div><strong>Exchange Username:</strong> ${exchangeProfile.exchange_username || '-'}</div>
+                <div><strong>Exchange Email:</strong> ${exchangeProfile.exchange_email || '-'}</div>
+                <div><strong>Exchange Phone:</strong> ${exchangeProfile.exchange_phone || '-'}</div>
+                <div><strong>Whitelisted IPs:</strong> ${whitelistedIpsText}</div>
+                <div><strong>Permissions:</strong> ${permissionsText}</div>
+                <div><strong>Exchange Created:</strong> ${formatTime(exchangeProfile.created_at)}</div>
+                <div><strong>Wallet Rows:</strong> ${walletSnapshot.balance_rows ?? '-'}</div>
+                <div><strong>Non-zero Assets:</strong> ${walletAssetsText}</div>
+                <div><strong>Private API Access:</strong> ${boolBadge(authProof.private_api_access)}</div>
+                <div><strong>Auth Probe Error:</strong> ${authProof.last_auth_error || '-'}</div>
+                <div><strong>Trade Permission:</strong> ${boolBadge(delta.can_trade)}</div>
+                <div><strong>Withdraw Permission:</strong> ${boolBadge(delta.can_withdraw, 'Enabled', 'Disabled')}</div>
+                <div><strong>Permissions Verified:</strong> ${boolBadge(delta.permissions_verified)}</div>
+                <div><strong>Connected:</strong> ${boolBadge(delta.is_active)}</div>
+                <div><strong>Last Verified:</strong> ${formatTime(delta.last_verified_at)}</div>
+                <div><strong>Last Error:</strong> ${delta.last_error || '-'}</div>
+            `;
+        }
+
+        async function saveProfileName() {
+            const full_name = (document.getElementById('profileFullName').value || '').trim();
+            const { payload } = await apiFetch('/api/profile/name', {
+                method: 'PATCH',
+                body: JSON.stringify({ full_name })
+            });
+            if (!payload.success) {
+                alert('Name update failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            localStorage.setItem('fullName', full_name);
+            document.getElementById('userGreeting').textContent = `Welcome, ${full_name}!`;
+            alert('Name updated successfully');
+        }
+
+        function startOtpResendTimer(seconds = 45) {
+            otpResendLeftSec = seconds;
+            const timerEl = document.getElementById('otpTimer');
+            const btn = document.getElementById('resendOtpBtn');
+            if (!timerEl || !btn) return;
+            btn.disabled = true;
+            if (otpResendInterval) clearInterval(otpResendInterval);
+            timerEl.textContent = `Resend available in ${otpResendLeftSec}s`;
+            otpResendInterval = setInterval(() => {
+                otpResendLeftSec -= 1;
+                if (otpResendLeftSec <= 0) {
+                    clearInterval(otpResendInterval);
+                    otpResendInterval = null;
+                    btn.disabled = false;
+                    timerEl.textContent = 'You can resend OTP now.';
+                    return;
+                }
+                timerEl.textContent = `Resend available in ${otpResendLeftSec}s`;
+            }, 1000);
+        }
+
+        async function requestEmailOtp() {
+            const new_email = (document.getElementById('profileEmail').value || '').trim();
+            if (!new_email) {
+                alert('Please enter new email first');
+                return;
+            }
+            const { payload } = await apiFetch('/api/profile/email/request-otp', {
+                method: 'POST',
+                body: JSON.stringify({ new_email }),
+            });
+            if (!payload.success) {
+                alert('OTP send failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            startOtpResendTimer(45);
+            alert(`OTP sent to ${new_email}${payload.debug_otp ? `\n[Debug OTP: ${payload.debug_otp}]` : ''}`);
+        }
+
+        async function verifyEmailOtp() {
+            const new_email = (document.getElementById('profileEmail').value || '').trim();
+            const otp = (document.getElementById('profileOtpInput').value || '').trim();
+            if (!new_email || !otp) {
+                alert('Email and OTP required');
+                return;
+            }
+            const { payload } = await apiFetch('/api/profile/email/verify-otp', {
+                method: 'POST',
+                body: JSON.stringify({ new_email, otp }),
+            });
+            if (!payload.success) {
+                alert('OTP verify failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            document.getElementById('profileOtpInput').value = '';
+            document.getElementById('profileEmailVerified').value = 'Yes ✅';
+            alert('Email verified and updated');
+        }
+
+        async function changeProfilePassword() {
+            const current_password = document.getElementById('currentPassword').value || '';
+            const new_password = document.getElementById('newPassword').value || '';
+            if (!current_password || !new_password) {
+                alert('Current and new password required');
+                return;
+            }
+            const { payload } = await apiFetch('/api/profile/password/change', {
+                method: 'POST',
+                body: JSON.stringify({ current_password, new_password }),
+            });
+            if (!payload.success) {
+                alert('Password change failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            alert('Password changed successfully');
+        }
+
+        async function refreshDeltaApiStatus() {
+            const { payload } = await apiFetch('/api/profile/delta-api/status', { method: 'GET' });
+            if (!payload.success) {
+                alert('Status check failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            const delta = payload.data || {};
+            document.getElementById('deltaApiStatusLine').textContent = `Status: ${delta.status_label || 'Not Added ⚪'}`;
+            if (delta.label) {
+                document.getElementById('deltaApiLabel').value = delta.label;
+            }
+            renderDeltaApiDetails(delta);
+        }
+
+        async function saveDeltaApi() {
+            const api_key = (document.getElementById('deltaApiKey').value || '').trim();
+            const secret_key = (document.getElementById('deltaApiSecret').value || '').trim();
+            const label = (document.getElementById('deltaApiLabel').value || '').trim() || 'Delta Primary';
+            if (!api_key || !secret_key) {
+                alert('API key and secret key required');
+                return;
+            }
+            const { payload } = await apiFetch('/api/profile/delta-api', {
+                method: 'POST',
+                body: JSON.stringify({ api_key, secret_key, label }),
+            });
+            if (!payload.success) {
+                alert('Delta key save failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            document.getElementById('deltaApiKey').value = '';
+            document.getElementById('deltaApiSecret').value = '';
+            alert('Delta API key saved successfully');
+            refreshDeltaApiStatus();
+            loadTradeExchangeAccounts();
+        }
+
+        async function deleteDeltaApi() {
+            const ok = confirm('Delete Delta API key? This action cannot be undone.');
+            if (!ok) return;
+            const { payload } = await apiFetch('/api/profile/delta-api', {
+                method: 'DELETE',
+                body: JSON.stringify({ confirm: true }),
+            });
+            if (!payload.success) {
+                alert('Delete failed: ' + (payload.error || 'Unknown error'));
+                return;
+            }
+            alert('Delta API key deleted');
+            refreshDeltaApiStatus();
+            loadTradeExchangeAccounts();
+        }
+
         // Strategy Functions
         function activateStrategy(strategyType) {
             alert(`✅ ${strategyType} strategy activate ho gayi hai! (Demo mode - actual trading abhi implement nahi hui)`);
@@ -3744,43 +4406,34 @@ ${workbookSheets}
             alert(`🧪 ${strategyType} strategy test chal raha hai... (Demo mode - actual testing abhi implement nahi hui)`);
         }
 
-        // Check if already logged in - NOW DIRECTLY SHOW APP
+        // App bootstrap
         window.addEventListener('DOMContentLoaded', () => {
-            // Directly show app layout without login check
-            document.getElementById('loginContainer').classList.add('hidden');
-            document.getElementById('appLayout').classList.add('active');
             loadBacktestReports();
             renderAllBacktestReports();
-            
-            // Set default user greeting
-            document.getElementById('userGreeting').textContent = 'Welcome to Crypto Trading!';
-            
-            // Initialize chart
-            setTimeout(() => {
-                if (typeof LightweightCharts === 'undefined') {
-                        const errorEl = document.getElementById('error');
-                        if (errorEl) {
-                            errorEl.textContent = 'Chart library load nahi hui. Page refresh karein.';
-                            errorEl.style.display = 'block';
-                        }
-                        return;
-                    }
-                    
+            try { syncBacktestPageStrategyUI(); } catch (e) {}
+
+            const token = localStorage.getItem('authToken') || '';
+            const fallbackLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const rememberedName = localStorage.getItem('fullName') || localStorage.getItem('username') || 'User';
+
+            if (token || fallbackLoggedIn) {
+                document.getElementById('loginContainer').classList.add('hidden');
+                document.getElementById('appLayout').classList.add('active');
+                document.getElementById('userGreeting').textContent = `Welcome, ${rememberedName}!`;
+                setTimeout(() => {
                     try {
                         initChart();
                     } catch (error) {
                         console.error('Chart initialization error:', error);
-                        const errorEl = document.getElementById('error');
-                        if (errorEl) {
-                            errorEl.textContent = `Chart error: ${error.message}`;
-                            errorEl.style.display = 'block';
-                        }
                     }
-                    
-                    // Load orders and positions
+                    loadTradeExchangeAccounts();
                     loadOrders();
                     loadPositions();
                 }, 100);
+            } else {
+                document.getElementById('appLayout').classList.remove('active');
+                document.getElementById('loginContainer').classList.remove('hidden');
+            }
         });
     </script>
 </body>

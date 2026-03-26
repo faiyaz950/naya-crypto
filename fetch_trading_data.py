@@ -37,10 +37,26 @@ DELTA_SYMBOL_MAP = {
 }
 
 
-def generate_signature_india(api_secret, method, path, query_string="", body=""):
-    """India API: timestamp in ms, message = timestamp + method + path + query_string + body"""
-    timestamp = str(int(time.time() * 1000))
-    message = timestamp + method.upper() + path + query_string + body
+def generate_signature_india(
+    api_secret,
+    method,
+    path,
+    query_string="",
+    body="",
+    timestamp=None,
+    *,
+    style="timestamp_first",
+):
+    """India API signature helper."""
+    if timestamp is None:
+        timestamp = str(int(time.time() * 1000))
+    method_upper = method.upper()
+    if style == "method_first":
+        # Some Delta environments expect: METHOD + TIMESTAMP + PATH + QUERY + BODY
+        message = method_upper + timestamp + path + query_string + body
+    else:
+        # Common format: TIMESTAMP + METHOD + PATH + QUERY + BODY
+        message = timestamp + method_upper + path + query_string + body
     signature = hmac.new(api_secret.encode(), message.encode(), hashlib.sha256).hexdigest()
     return timestamp, signature
 
@@ -49,6 +65,7 @@ def generate_signature_india(api_secret, method, path, query_string="", body="")
 CANDLES_TIMEOUT = 45
 CANDLES_RETRIES = 3
 CANDLES_BATCH_LIMIT = 500  # Max candles per request (Delta may cap this)
+AUTH_TIMEOUT = 12
 
 
 class DeltaExchangeClient:
@@ -104,13 +121,30 @@ class DeltaExchangeClient:
             print(f"   ⚠️ Products list failed: {e}")
         return None
     
-    def _generate_signature(self, method, path, query_string, body=None):
-        """HMAC SHA256 - Delta India format (timestamp in ms)"""
-        timestamp = str(int(time.time() * 1000))
-        message = timestamp + method.upper() + path
-        if query_string:
-            message += query_string
-        if body:
+    def _generate_signature(
+        self,
+        method,
+        path,
+        query_string,
+        body=None,
+        timestamp=None,
+        *,
+        style="timestamp_first",
+        include_query=True,
+        include_body=True,
+    ):
+        """HMAC SHA256 signature for authenticated requests."""
+        if timestamp is None:
+            timestamp = str(int(time.time() * 1000))
+        method_upper = method.upper()
+        if style == "method_first":
+            message = method_upper + timestamp + path
+        else:
+            message = timestamp + method_upper + path
+        if include_query and query_string:
+            # Delta signature_data includes query with leading '?'.
+            message += f"?{query_string}"
+        if include_body and body:
             body_str = json.dumps(body, separators=(',', ':')) if isinstance(body, dict) else str(body)
             message += body_str
         signature = hmac.new(
@@ -124,37 +158,109 @@ class DeltaExchangeClient:
         """Authenticated request (for private endpoints)"""
         path = endpoint
         query_string = urlencode(params) if params else ""
-        signature, timestamp = self._generate_signature(method, path, query_string, body)
-        headers = {
-            'api-key': self.api_key,
-            'timestamp': timestamp,
-            'signature': signature,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
         url = f"{self.base_url}{endpoint}"
         if query_string:
             url += f"?{query_string}"
-        try:
+
+        def do_request(timestamp_value, signature_style, include_query=True, include_body=True):
+            signature, _ = self._generate_signature(
+                method,
+                path,
+                query_string,
+                body,
+                timestamp=timestamp_value,
+                style=signature_style,
+                include_query=include_query,
+                include_body=include_body,
+            )
+            headers = {
+                'api-key': self.api_key,
+                'timestamp': timestamp_value,
+                'signature': signature,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
             if method == 'GET':
-                response = requests.get(url, headers=headers)
-            elif method == 'POST':
-                response = requests.post(url, headers=headers, json=body)
-            elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
-            else:
-                response = requests.request(method, url, headers=headers, json=body)
-            if response.status_code == 200:
-                self.last_error = None
-                return response.json()
-            else:
-                self.last_error = response.text
-                print(f"❌ Error: {response.status_code} - {response.text[:200]}")
+                return requests.get(url, headers=headers, timeout=AUTH_TIMEOUT)
+            if method == 'POST':
+                return requests.post(url, headers=headers, json=body, timeout=AUTH_TIMEOUT)
+            if method == 'DELETE':
+                return requests.delete(url, headers=headers, timeout=AUTH_TIMEOUT)
+            return requests.request(method, url, headers=headers, json=body, timeout=AUTH_TIMEOUT)
+
+        def parse_server_time_candidates(response_text):
+            """
+            Parse server_time from error JSON and return candidate timestamps.
+            """
+            candidates = []
+            try:
+                data = json.loads(response_text or "{}")
+                context = (data.get("error") or {}).get("context") or {}
+                server_time = context.get("server_time")
+                if server_time is not None:
+                    server_time = int(server_time)
+                    # Delta private auth works reliably with seconds timestamps.
+                    candidates.extend([
+                        str(server_time - 1),
+                        str(server_time),
+                        str(server_time + 1),
+                    ])
+            except Exception:
+                pass
+            return candidates
+
+        # Retry across known timestamp/signature formats used by Delta variants.
+        # Primary mode is method-first + seconds because error context shows:
+        # signature_data => GET1772987178/v2/positions
+        timestamp_ms = str(int(time.time() * 1000))
+        timestamp_sec = str(int(time.time()))
+        attempts = [
+            (timestamp_sec, "method_first", False, False),  # strongest match with Delta signature_data context
+            (timestamp_sec, "method_first", True, True),
+            (timestamp_sec, "timestamp_first", True, True),
+        ]
+        added_server_time_attempts = False
+        max_attempts = 10
+
+        idx = 0
+        while idx < len(attempts) and idx < max_attempts:
+            ts, style, use_query, use_body = attempts[idx]
+            try:
+                response = do_request(ts, style, include_query=use_query, include_body=use_body)
+                if response.status_code == 200:
+                    self.last_error = None
+                    return response.json()
+                body_text = response.text or ""
+                self.last_error = body_text
+                sig_error = ("expired_signature" in body_text) or ("Signature Mismatch" in body_text)
+                if sig_error:
+                    if not added_server_time_attempts:
+                        server_ts_candidates = parse_server_time_candidates(body_text)
+                        if server_ts_candidates:
+                            # Prefer server_time seconds first, then milliseconds.
+                            for ts in server_ts_candidates:
+                                attempts.extend([
+                                    (ts, "method_first", False, False),
+                                    (ts, "method_first", True, True),
+                                    (ts, "timestamp_first", True, True),
+                                ])
+                        added_server_time_attempts = True
+                    print(f"⚠️ Retrying authenticated request (style={style}, ts_len={len(ts)}, q={use_query}, b={use_body})")
+                    idx += 1
+                    continue
+                print(f"❌ Error: {response.status_code} - {body_text[:200]}")
                 return None
-        except Exception as e:
-            self.last_error = str(e)
-            print(f"❌ Error: {e}")
-            return None
+            except Exception as e:
+                self.last_error = str(e)
+                if idx < len(attempts) - 1 and idx < max_attempts - 1:
+                    idx += 1
+                    continue
+                print(f"❌ Error: {e}")
+                return None
+            idx += 1
+        if self.last_error:
+            print(f"❌ Auth request failed after retries: {self.last_error[:200]}")
+        return None
     
     def get_market_data(self, symbol=None):
         """Market data fetch karta hai"""
@@ -163,6 +269,65 @@ class DeltaExchangeClient:
         if symbol:
             params['symbol'] = symbol
         return self._make_request('GET', endpoint, params)
+
+    def get_account_profile(self):
+        """
+        Fetch user/profile/api-key details from private endpoints if available.
+        Returns merged dict (best effort), or {} when all endpoints fail.
+        """
+        candidates = [
+            "/v2/users/me",
+            "/v2/user",
+            "/v2/users/self",
+            "/v2/profile",
+            "/v2/user/profile",
+            "/v2/account",
+            "/v2/accounts",
+            # Some Delta variants expose API-key metadata here.
+            "/v2/api_keys",
+            "/v2/api-keys",
+            "/v2/api_keys/me",
+        ]
+        merged = {}
+        for endpoint in candidates:
+            data = self._make_request('GET', endpoint)
+            if data:
+                result = data.get('result') if isinstance(data, dict) else None
+                if isinstance(result, dict):
+                    merged.update(result)
+                elif isinstance(result, list) and result:
+                    # Keep full list for deep field extraction upstream.
+                    merged.setdefault("api_keys", result)
+                    first_item = result[0]
+                    if isinstance(first_item, dict):
+                        merged.update(first_item)
+                elif isinstance(data, dict):
+                    merged.update(data)
+        return merged
+
+    def get_wallet_balances(self):
+        """
+        Fetch wallet/balance details from private endpoints (best effort).
+        Returns dict/list payload if available, else {}.
+        """
+        candidates = [
+            "/v2/wallet/balances",
+            "/v2/wallet/balance",
+            "/v2/balances",
+            "/v2/wallet",
+        ]
+        for endpoint in candidates:
+            data = self._make_request('GET', endpoint)
+            if not data:
+                continue
+            if isinstance(data, dict):
+                result = data.get('result')
+                if isinstance(result, (dict, list)) and result:
+                    return result
+                return data
+            if isinstance(data, list) and data:
+                return data
+        return {}
     
     def _delta_symbol(self, symbol):
         """Delta India uses BTCUSD not BTCUSDT."""
@@ -345,10 +510,21 @@ class DeltaExchangeClient:
             print(f"      ✅ Received {out['count']} candles")
         return out
     
-    def get_positions(self):
-        """Current positions fetch karta hai"""
+    def get_positions(self, underlying_asset_symbol=None, product_id=None):
+        """
+        Current positions fetch karta hai.
+        Delta may require one of: product_id or underlying_asset_symbol.
+        """
         endpoint = "/v2/positions"
-        return self._make_request('GET', endpoint)
+        params = {}
+        if product_id is not None:
+            params["product_id"] = product_id
+        elif underlying_asset_symbol:
+            params["underlying_asset_symbol"] = str(underlying_asset_symbol).upper()
+        else:
+            # Safe default for auth probe / broad positions
+            params["underlying_asset_symbol"] = "BTC"
+        return self._make_request('GET', endpoint, params=params)
     
     def place_order(self, symbol, side, order_type, quantity, price=None, reduce_only=False):
         """Order place karta hai"""

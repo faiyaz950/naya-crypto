@@ -23,3 +23,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local runtime artifacts
+crypto_trading.sqlite3
+server.log
+static/*.bak

@@ -7,14 +7,41 @@
 pip3 install flask flask-cors pandas numpy requests
 ```
 
-### 2. Start Server
+### 2. MySQL + Django ORM setup
+
+Create MySQL database credentials as environment variables before starting backend:
+
+```bash
+export MYSQL_HOST=127.0.0.1
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_PASSWORD=your_mysql_password
+export MYSQL_DATABASE=crypto_trading
+export BYOK_ENCRYPTION_KEY=replace_with_fernet_or_passphrase
+
+# SMTP (OTP email delivery)
+export SMTP_HOST=smtp.gmail.com
+export SMTP_PORT=587
+export SMTP_USERNAME=you@example.com
+export SMTP_PASSWORD=your_app_password
+export SMTP_FROM_EMAIL=you@example.com
+export SMTP_USE_TLS=true
+export EMAIL_OTP_DEBUG=false
+```
+
+Backend startup par Django ORM required tables automatically create karega:
+- `app_logins`
+- `broker_logins`
+- `demo_orders`
+
+### 3. Start Server
 ```bash
 python3 backend_api.py
 ```
 
-### 3. Open Browser
+### 4. Open Browser
 ```
-http://localhost:5000
+http://localhost:2000
 ```
 
 ## 📁 Files
@@ -37,6 +64,33 @@ http://localhost:5000
 - `GET /api/candles` - Candle data with EMA
 - `GET /api/market-info` - Market information
 - `GET /api/health` - Health check
+
+### 🔐 BYOK (Bring Your Own Key) APIs
+
+- `POST /api/auth/register` - Create platform user
+- `POST /api/auth/login` - Login and receive session token
+- `POST /api/auth/key-login` - Login/signup via exchange API key + secret
+- `GET /api/auth/me` - Current user/session
+- `POST /api/auth/logout` - Logout
+- `POST /api/byok/exchange-accounts` - Connect exchange key/secret (encrypted at rest)
+- `GET /api/byok/exchange-accounts` - List linked exchange accounts
+- `POST /api/byok/exchange-accounts/<id>/verify` - Re-verify linked account
+- `POST /api/byok/exchange-accounts/<id>/revoke` - Revoke account
+- `POST /api/byok/orders` - Place authenticated BYOK order
+- `POST /api/byok/orders/cancel` - Cancel BYOK order
+- `GET /api/byok/orders` - Fetch user BYOK order history
+- `GET /api/byok/positions?exchange_account_id=<id>` - Fetch positions for linked account
+
+### 👤 Profile & Security APIs
+
+- `GET /api/profile` - User profile + Delta API connection status
+- `PATCH /api/profile/name` - Update full name (2-50 chars)
+- `POST /api/profile/email/request-otp` - Send OTP for email change
+- `POST /api/profile/email/verify-otp` - Verify OTP and update email
+- `POST /api/profile/password/change` - Change password (current password required)
+- `GET /api/profile/delta-api/status` - Delta API status (`connected`/`invalid`/`not_added`)
+- `POST /api/profile/delta-api` - Add Delta API key (Trade+Read only, no withdrawal)
+- `DELETE /api/profile/delta-api` - Delete Delta API key (requires `confirm=true`)
 
 ## 📊 Backtesting Strategy
 
